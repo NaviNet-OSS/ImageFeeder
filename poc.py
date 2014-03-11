@@ -10,7 +10,9 @@ from selenium.common import exceptions
 from selenium.webdriver.remote import webdriver
 
 
-applitools.eyes.Eyes.api_key = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+APP_NAME = 'app'
+TEST_NAME = 'test'
+EYES_SERVER = applitools.eyes.Eyes.DEFAULT_EYES_SERVER.rstrip('/')
 
 
 def match_window(eyes, path):
@@ -29,10 +31,10 @@ def match_window(eyes, path):
         eyes._match_window_task._running_session, data)
 
 
-def test(path):
+def test(path, overwrite_baseline=False):
     class FakeWebDriver(webdriver.WebDriver):
         def __init__(self):
-            pass
+            self.capabilities = {'takesScreenshot': True}
 
         def get_window_size(self):
             return collections.defaultdict(int)
@@ -45,8 +47,9 @@ def test(path):
     except OSError:
         paths = [path]
     try:
-        eyes = applitools.eyes.Eyes()
-        eyes.open(driver=FakeWebDriver(), app_name='p2', test_name='t')
+        eyes = applitools.eyes.Eyes(EYES_SERVER)
+        eyes.save_failed_tests = overwrite_baseline
+        eyes.open(FakeWebDriver(), APP_NAME, TEST_NAME)
         for path in paths:
             match_window(eyes, path)
         eyes.close()
@@ -55,7 +58,10 @@ def test(path):
 
 
 def main():
-    test(r'C:\Users\DCorbett\Desktop\Applitools\Baseline')
+    applitools.eyes.Eyes.api_key = (
+        'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+    test(r'C:\Users\DCorbett\Desktop\Applitools\Baseline', True)
+    test(r'C:\Users\DCorbett\Desktop\Applitools\New')
 
 
 if __name__ == '__main__':
