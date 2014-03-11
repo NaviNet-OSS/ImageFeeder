@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import collections
 import os
@@ -6,13 +7,14 @@ import os.path
 
 import applitools.eyes
 from applitools import _match_window_task
+from applitools import errors
 from selenium.common import exceptions
 from selenium.webdriver.remote import webdriver
 
 
 APP_NAME = 'app'
 TEST_NAME = 'test'
-EYES_SERVER = applitools.eyes.Eyes.DEFAULT_EYES_SERVER.rstrip('/')
+EYES_SERVER = applitools.eyes.Eyes.DEFAULT_EYES_SERVER
 
 
 def match_window(eyes, path):
@@ -25,7 +27,7 @@ def match_window(eyes, path):
         screenshot64 = f.read().encode('base64')
     data = {'appOutput': {'title': '', 'screenshot64': screenshot64},
             'userInputs': [],
-            'tag': None,
+            'tag': os.path.basename(path),
             'ignoreMismatch': False}
     eyes._match_window_task._agent_connector.match_window(
         eyes._match_window_task._running_session, data)
@@ -53,6 +55,8 @@ def test(path, overwrite_baseline=False):
         for path in paths:
             match_window(eyes, path)
         eyes.close()
+    except errors.TestFailedError as e:
+        print(e)
     finally:
         eyes.abort_if_not_closed()
 
