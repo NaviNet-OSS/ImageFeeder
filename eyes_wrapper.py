@@ -37,18 +37,14 @@ def match_window(eyes, path):
         eyes._match_window_task._running_session, data)
 
 
-def test(path, overwrite_baseline=False):
-    """Matches images against the baseline.
+def run_eyes(callback, overwrite_baseline=False):
+    """Runs Eyes with a callback.
 
-    Matches a single image or a directory of images against the
-    baseline in Applitools. If there is no baseline for this app, it
-    creates one. If the test did not pass, it prints Applitools's error
-    output.
+    Opens Eyes, calls the callback, and closes Eyes.
 
     Args:
-        path: The path of either an image or a directory of images.
-        overwrite_baseline: Whether to overwrite the baseline with the
-            results of this test.
+        callback: A function taking an open Eyes instance.
+        overwrite_baseline: Whether to overwrite the baseline.
     """
     class _FakeWebDriver(webdriver.WebDriver):
         """A fake web driver.
@@ -79,15 +75,11 @@ def test(path, overwrite_baseline=False):
             return 0
 
     try:
-        paths = [os.path.join(path, f) for f in os.listdir(path)]
-    except OSError:
-        paths = [path]
-    try:
+        applitools.eyes.Eyes.api_key = API_KEY
         eyes = applitools.eyes.Eyes(EYES_SERVER)
         eyes.save_failed_tests = overwrite_baseline
         eyes.open(_FakeWebDriver(), APP_NAME, TEST_NAME)
-        for path in paths:
-            match_window(eyes, path)
+        callback(eyes)
         eyes.close()
     except errors.TestFailedError as e:
         print(e)
@@ -95,8 +87,30 @@ def test(path, overwrite_baseline=False):
         eyes.abort_if_not_closed()
 
 
+def test(path, overwrite_baseline=False):
+    """Matches images against the baseline.
+
+    Matches a single image or a directory of images against the
+    baseline in Applitools. If there is no baseline for this app, it
+    creates one. If the test did not pass, it prints Applitools's error
+    output.
+
+    Args:
+        path: The path of either an image or a directory of images.
+        overwrite_baseline: Whether to overwrite the baseline with the
+            results of this test.
+    """
+    try:
+        paths = [os.path.join(path, f) for f in os.listdir(path)]
+    except OSError:
+        paths = [path]
+    def callback(eyes):
+        for path in paths:
+            match_window(eyes, path)
+    run_eyes(callback, overwrite_baseline)
+
+
 def main():
-    applitools.eyes.Eyes.api_key = API_KEY
     test(r'C:\Users\DCorbett\Desktop\Applitools\Baseline', True)
     test(r'C:\Users\DCorbett\Desktop\Applitools\New')
 
