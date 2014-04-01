@@ -14,7 +14,7 @@ from watchdog import observers
 import eyes_wrapper
 
 
-_QUEUE = Queue.Queue()
+_QUEUES = []
 
 # See http://robotframework.googlecode.com/hg/doc/userguide/RobotFrameworkUserGuide.html#test-library-scope
 ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
@@ -77,14 +77,17 @@ def watch_path(path):
     Args:
         path: The name of the directory to watch.
     """
-    threading.Thread(target=(lambda: eyes_wrapper.run_eyes(lambda eyes:
-        _send_new_files(path, eyes, _QUEUE)))).start()
+    queue = Queue.Queue()
+    _QUEUES.append(queue)
+    threading.Thread(target=lambda: eyes_wrapper.run_eyes(
+        lambda eyes: _send_new_files(path, eyes, queue))).start()
 
 
 def stop_watching():
     """Stops watching all directories.
     """
-    _QUEUE.put(None)  # The exact item doesn't matter
+    for queue in _QUEUES:
+        queue.put(None)  # The exact item doesn't matter
 
 
 def main():
