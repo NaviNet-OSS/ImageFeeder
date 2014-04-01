@@ -12,7 +12,6 @@ from selenium.webdriver.remote import webdriver
 API_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 APP_NAME = 'app'
 TEST_NAME = 'test'
-EYES_SERVER = applitools.eyes.Eyes.DEFAULT_EYES_SERVER
 
 
 def match_window(eyes, path):
@@ -76,7 +75,7 @@ def run_eyes(callback, overwrite_baseline=False):
 
     try:
         applitools.eyes.Eyes.api_key = API_KEY
-        eyes = applitools.eyes.Eyes(EYES_SERVER)
+        eyes = applitools.eyes.Eyes()
         eyes.save_failed_tests = overwrite_baseline
         eyes.open(_FakeWebDriver(), APP_NAME, TEST_NAME)
         callback(eyes)
