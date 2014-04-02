@@ -91,11 +91,9 @@ def stop_watching():
 
 
 def main():
-    try:
-        path = sys.argv[1]
-    except IndexError:
-        path = os.curdir
-    watch_path(path)
+    paths = sys.argv[1:] or [os.curdir]
+    for path in paths:
+        watch_path(path)
     try:
         while True:
             time.sleep(1)
