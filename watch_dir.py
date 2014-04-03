@@ -44,35 +44,47 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
         """
         self._eyes = eyes
         self._queue = queue
+        self._backlog = Queue.Queue()
+        threading.Thread(target=self._send_new_files).start()
 
     def on_created(self, event):
-        """Sends a new file to Applitools.
+        """Queues a new file for sending to Applitools.
 
-        Does not send directories. Moves files to a processing
-        subdirectory. Silently ignores errors from sending non-image
-        files. Stops watching when a file called 'done' is created.
+        Does not queue directories.
 
         Args:
             event: The file system event.
         """
         if os.path.isfile(event.src_path):
-            print(str(event.src_path))
-            if os.path.basename(event.src_path) == DONE_BASE_NAME:
+            self._backlog.put(event.src_path)
+
+    def _send_new_files(self):
+        """Sends a new file to Applitools.
+
+        Moves files to a processing subdirectory. Silently ignores
+        errors from sending non-image files. Stops watching when a file
+        called 'done' appears in the queue.
+        """
+        _CONCURRENT_TEST_QUEUE.put(None)
+        while True:
+            path = self._backlog.get()
+            if os.path.basename(path) == DONE_BASE_NAME:
                 # Stop watching the path
                 self._queue.put(None)
                 # Allow another path to be watched
                 _CONCURRENT_TEST_QUEUE.get()
                 _CONCURRENT_TEST_QUEUE.task_done()
-            else:
-                try:
-                    new_path = event.src_path
-                    # head, tail = os.path.split(event.src_path)
-                    # new_path = os.path.join(head, PROCESSING_DIR_NAME, tail)
-                    # os.rename(event.src_path, new_path)
-                    eyes_wrapper.match_window(self._eyes, new_path)
-                except exceptions.HTTPError:
-                    # The file wasn't a valid image.
-                    pass
+                break
+            head, tail = os.path.split(path)
+            new_path = os.path.join(head,
+                                    # PROCESSING_DIR_NAME, # TODO
+                                    tail)
+            # os.rename(path, new_path)
+            try:
+                eyes_wrapper.match_window(self._eyes, new_path)
+            except exceptions.HTTPError:
+                # The file wasn't a valid image.
+                pass
 
 
 def _send_new_files(path, eyes, queue):
@@ -104,7 +116,6 @@ def watch_path(path):
     Args:
         path: The name of the directory to watch.
     """
-    _CONCURRENT_TEST_QUEUE.put(None)
     try:
         os.makedirs(os.path.join(path, PROCESSING_DIR_NAME))
     except OSError as e:
