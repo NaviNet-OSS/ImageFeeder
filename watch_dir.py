@@ -135,7 +135,8 @@ def stop_watching():
 
 
 def main():
-    paths = sys.argv[1:] or [os.curdir]
+    paths = set([os.path.normcase(os.path.realpath(path))
+                 for path in sys.argv[1:] or [os.curdir]])
     for path in paths:
         watch_path(path)
     try:
