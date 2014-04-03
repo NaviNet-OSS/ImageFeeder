@@ -4,6 +4,7 @@
 import errno
 import os
 import Queue
+import shutil
 import sys
 import threading
 import time
@@ -17,7 +18,8 @@ import eyes_wrapper
 
 _QUEUES = []
 DONE_BASE_NAME = 'done'
-PROCESSING_DIR_NAME = 'processing'
+PROCESSING_DIR_NAME = 'Processing'
+ARCHIVE_DIR_NAME = 'Archive'
 
 # The Applitools Eyes Team License limits the number of concurrent
 # tests to n + 1, where n is the number of team members. (We have five
@@ -45,25 +47,31 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
         self._eyes = eyes
         self._queue = queue
         self._backlog = Queue.Queue()
-        threading.Thread(target=self._send_new_files).start()
+        thread = threading.Thread(target=self._send_new_files)
+        thread.daemon = True
+        thread.start()
 
     def on_created(self, event):
         """Queues a new file for sending to Applitools.
 
-        Does not queue directories.
+        Does not queue directories. Moves files to a processing
+        directory.
 
         Args:
             event: The file system event.
         """
         if os.path.isfile(event.src_path):
-            self._backlog.put(event.src_path)
+            head, tail = os.path.split(event.src_path)
+            new_path = os.path.join(os.path.dirname(head),
+                                    PROCESSING_DIR_NAME, tail)
+            os.rename(event.src_path, new_path)
+            self._backlog.put(new_path)
 
     def _send_new_files(self):
         """Sends a new file to Applitools.
 
-        Moves files to a processing subdirectory. Silently ignores
-        errors from sending non-image files. Stops watching when a file
-        called 'done' appears in the queue.
+        Silently ignores errors from sending non-image files. Stops
+        watching when a file called 'done' appears in the queue.
         """
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
@@ -75,13 +83,8 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
                 _CONCURRENT_TEST_QUEUE.get()
                 _CONCURRENT_TEST_QUEUE.task_done()
                 break
-            head, tail = os.path.split(path)
-            new_path = os.path.join(head,
-                                    # PROCESSING_DIR_NAME, # TODO
-                                    tail)
-            # os.rename(path, new_path)
             try:
-                eyes_wrapper.match_window(self._eyes, new_path)
+                eyes_wrapper.match_window(self._eyes, path)
             except exceptions.HTTPError:
                 # The file wasn't a valid image.
                 pass
@@ -90,7 +93,8 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
 def _send_new_files(path, eyes, queue):
     """Sends new files to Applitools.
 
-    Watches a directory for files to send.
+    Watches a directory for files to send. Moves files to an archive
+    directory when done.
 
     Args:
         path: The name of the directory to watch.
@@ -105,19 +109,26 @@ def _send_new_files(path, eyes, queue):
     queue.get()
     observer.stop()
     observer.join()
+    archive = os.path.join(os.path.dirname(path), ARCHIVE_DIR_NAME)
+    shutil.rmtree(archive, True)
+    os.rename(os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME),
+              archive)
 
 
 def watch_path(path):
     """Sends new files to Applitools in another thread.
 
     Watches a directory for files to send. Moves new files to a
-    processing subdirectory.
+    processing directory. When a new file is named 'done', it stops
+    watching and moves the files to an archive directory.
 
     Args:
-        path: The name of the directory to watch.
+        path: The name of the directory to watch, without a trailing
+            directory separator.
     """
     try:
-        os.makedirs(os.path.join(path, PROCESSING_DIR_NAME))
+        # If path has a trailing directory separator, this won't work
+        os.makedirs(os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME))
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
