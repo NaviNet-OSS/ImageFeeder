@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import os.path
+import sys
 
 from applitools import _match_window_task
 from applitools import errors
@@ -87,7 +89,7 @@ def run_eyes(callback, overwrite_baseline=False):
 
 
 def test(path, overwrite_baseline=False):
-    """Matches images against the baseline.
+    """Matches an image against the baseline.
 
     Matches a single image or a directory of images against the
     baseline in Applitools. If there is no baseline for this app, it
@@ -109,9 +111,53 @@ def test(path, overwrite_baseline=False):
     run_eyes(callback, overwrite_baseline)
 
 
+def _usage_and_exit(status=None):
+    """Prints a usage statement and exits.
+
+    If status is omitted, None, or 0, the usage statement is printed to
+    standard output. Otherwise, it is printed to standard error.
+
+    Args:
+        status: An exit status.
+    """
+    if status:
+        stream = sys.stderr
+    else:
+        stream = sys.stdout
+    print('Usage:\n'
+          '    {} [[-o | --overwrite] directory ...]'.format(sys.argv[0]),
+          file=stream)
+    sys.exit(status)
+
+
+def _parse_args():
+    """Parses the command-line arguments.
+
+    Returns:
+        A list of 2-tuples, each of a path and a boolean, where the
+        boolean indicates whether the file at the associated path
+        should overwrite the baseline.
+    """
+    paths = []
+    i = 1
+    while i < len(sys.argv):
+        overwrite = False
+        if sys.argv[i] in ['-o', '--overwrite']:
+            i += 1
+            overwrite = True
+        elif sys.argv[i] in ['-h', '--help']:
+            _usage_and_exit()
+        try:
+            paths.append((sys.argv[i], overwrite))
+            i += 1
+        except IndexError:
+            _usage_and_exit(1)
+    return paths
+
 def main():
-    test(r'C:\Users\DCorbett\Desktop\Applitools\Baseline', True)
-    test(r'C:\Users\DCorbett\Desktop\Applitools\New')
+    paths = _parse_args()
+    for path, overwrite in paths:
+        test(path, overwrite)
 
 
 if __name__ == '__main__':
