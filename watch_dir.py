@@ -16,7 +16,7 @@ from watchdog import observers
 import eyes_wrapper
 
 
-_QUEUES = []
+_STOP_EVENTS = []
 DONE_BASE_NAME = 'done'
 PROCESSING_DIR_NAME = 'Processing'
 ARCHIVE_DIR_NAME = 'Archive'
@@ -36,16 +36,16 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
     """Event handler that sends new files to Applitools.
     """
 
-    def __init__(self, eyes, queue):
+    def __init__(self, eyes, stop_event):
         """Initializes the event handler.
 
         Args:
             eyes: An open Eyes instance to send images through.
-            queue: A Queue to make non-empty when it is time to stop
+            stop_event: An Event to set when it is time to stop
                 watching.
         """
         self._eyes = eyes
-        self._queue = queue
+        self._stop_event = stop_event
         self._backlog = Queue.Queue()
         thread = threading.Thread(target=self._send_new_files)
         thread.daemon = True
@@ -78,7 +78,7 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
             path = self._backlog.get()
             if os.path.basename(path) == DONE_BASE_NAME:
                 # Stop watching the path
-                self._queue.put(None)
+                self._stop_event.set()
                 # Allow another path to be watched
                 _CONCURRENT_TEST_QUEUE.get()
                 _CONCURRENT_TEST_QUEUE.task_done()
@@ -90,7 +90,7 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
                 pass
 
 
-def _send_new_files(path, eyes, queue):
+def _send_new_files(path, eyes, stop_event):
     """Sends new files to Applitools.
 
     Watches a directory for files to send. Moves files to an archive
@@ -99,14 +99,14 @@ def _send_new_files(path, eyes, queue):
     Args:
         path: The name of the directory to watch.
         eyes: An open Eyes instance.
-        queue: A Queue. When it becomes non-empty, it is time to stop
+        stop_event: An Event. When it is set, it is time to stop
             watching for new files.
     """
-    event_handler = WindowMatchingEventHandler(eyes, queue)
+    event_handler = WindowMatchingEventHandler(eyes, stop_event)
     observer = observers.Observer()
     observer.schedule(event_handler, path)
     observer.start()
-    queue.get()
+    stop_event.wait()
     observer.stop()
     observer.join()
     archive = os.path.join(os.path.dirname(path), ARCHIVE_DIR_NAME)
@@ -132,17 +132,17 @@ def watch_path(path):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-    queue = Queue.Queue()
-    _QUEUES.append(queue)
+    stop_event = threading.Event()
+    _STOP_EVENTS.append(stop_event)
     threading.Thread(target=lambda: eyes_wrapper.run_eyes(
-        lambda eyes: _send_new_files(path, eyes, queue))).start()
+        lambda eyes: _send_new_files(path, eyes, stop_event))).start()
 
 
 def stop_watching():
     """Stops watching all directories.
     """
-    for queue in _QUEUES:
-        queue.put(None)  # The exact item doesn't matter
+    for stop_event in _STOP_EVENTS:
+        stop_event.set()
 
 
 def main():
