@@ -39,53 +39,82 @@ def match_window(eyes, path):
         eyes._match_window_task._running_session, data)
 
 
-def run_eyes(callback, overwrite_baseline=False):
-    """Runs Eyes with a callback.
+class EyesWrapper(object):
+    """A wrapper for Applitools Eyes.
 
-    Opens Eyes, calls the callback, and closes Eyes.
+    The eyes-selenium package makes it inconvenient to upload
+    preexisting images directly. This wrapper abstracts the set-up and
+    tear-down processes.
 
-    Args:
-        callback: A function taking an open Eyes instance.
-        overwrite_baseline: Whether to overwrite the baseline.
+    Attributes:
+        eyes: The wrapped Eyes instance.
     """
-    class _FakeWebDriver(webdriver.WebDriver):
-        """A fake web driver.
+    def __init__(self, overwrite_baseline=False):
+        """Initializes the Eyes wrapper.
 
-        Applitools currently requires Selenium to work, so we need a
-        web driver to trick it into working.
-
-        Attributes:
-            capabilities: A dictionary of capability names to booleans.
-                The only one that matters is 'takesScreenshot', which
-                must be True, or else Applitools will try (and fail) to
-                take screenshots itself.
+        Args:
+            overwrite_baseline: Whether to overwrite the baseline.
         """
+        self._overwrite_baseline = overwrite_baseline
 
-        def __init__(self):
-            """Initializes capabilities."""
-            self.capabilities = {'takesScreenshot': True}
+    def __enter__(self):
+        """Opens an Eyes instance.
 
-        def execute_script(self, script, params=None):
-            """Returns a fake viewport dimension.
 
-            The only scripts that must be mocked are those that get the
-            width and height of the viewport.
+        Returns:
+            The EyesWrapper.
+        """
+        class _FakeWebDriver(webdriver.WebDriver):
+            """A fake web driver.
 
-            Returns:
-                A valid viewport dimension.
+            Applitools currently requires Selenium to work, so we need
+            a web driver to trick it into working.
+
+            Attributes:
+                capabilities: A dictionary of capability names to
+                    booleans. The only one that matters is
+                    'takesScreenshot', which must be True, or else
+                    Applitools will try (and fail) to take screenshots
+                    itself.
             """
-            return 0
 
-    try:
-        eyes = applitools.eyes.Eyes()
-        eyes.save_failed_tests = overwrite_baseline
-        eyes.open(_FakeWebDriver(), APP_NAME, TEST_NAME)
-        callback(eyes)
-        eyes.close()
-    except errors.TestFailedError as e:
-        print(e)
-    finally:
-        eyes.abort_if_not_closed()
+            def __init__(self):
+                """Initializes capabilities."""
+                self.capabilities = {'takesScreenshot': True}
+
+            def execute_script(self, script, params=None):
+                """Returns a fake viewport dimension.
+
+                The only scripts that must be mocked are those that get
+                the width and height of the viewport.
+
+                Returns:
+                    A valid viewport dimension.
+                """
+                return 0
+
+        self.eyes = applitools.eyes.Eyes()
+        self.eyes.save_failed_tests = self._overwrite_baseline
+        self.eyes.open(_FakeWebDriver(), APP_NAME, TEST_NAME)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Closes the wrapped Eyes instance.
+
+        Prints a message to standard output if the images did not match
+        the baseline.
+
+        Args:
+            exc_type: Type of the raised exception.
+            exc_value: The raised exception.
+            traceback: The traceback.
+        """
+        try:
+            self.eyes.close()
+        except errors.TestFailedError as e:
+            print(e)
+        finally:
+            self.eyes.abort_if_not_closed()
 
 
 def test(path, overwrite_baseline=False):
@@ -105,10 +134,9 @@ def test(path, overwrite_baseline=False):
         paths = [os.path.join(path, f) for f in os.listdir(path)]
     except OSError:
         paths = [path]
-    def callback(eyes):
+    with EyesWrapper(overwrite_baseline) as eyes_wrapper:
         for path in paths:
-            match_window(eyes, path)
-    run_eyes(callback, overwrite_baseline)
+            match_window(eyes_wrapper.eyes, path)
 
 
 def _usage_and_exit(status=None):

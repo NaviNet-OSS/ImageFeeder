@@ -9,8 +9,16 @@ import time
 
 from requests import exceptions
 
-import eyes_wrapper
+import eyeswrapper
 import watch_dir
+
+
+# The Applitools Eyes Team License limits the number of concurrent
+# tests to n + 1, where n is the number of team members. (We have five
+# members.) However, Applitools does not enforce this limit; until they
+# do, we are free to test as much as we want.
+_MAX_CONCURRENT_TESTS = 2
+_CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
 
 class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
@@ -45,18 +53,26 @@ class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
                 _CONCURRENT_TEST_QUEUE.task_done()
                 break
             try:
-                eyes_wrapper.match_window(self._eyes, path)
+                eyeswrapper.match_window(self._eyes, path)
             except exceptions.HTTPError:
                 # The file wasn't a valid image.
                 pass
 
 
-# The Applitools Eyes Team License limits the number of concurrent
-# tests to n + 1, where n is the number of team members. (We have five
-# members.) However, Applitools does not enforce this limit; until they
-# do, we are free to test as much as we want.
-_MAX_CONCURRENT_TESTS = 2
-_CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
+def _run(path, stop_event):
+    """Sends new files to Eyes.
+
+    Opens Eyes; watches for new files and sends them to Eyes; stops
+    watching; closes Eyes.
+
+    Args:
+        path: The path to watch.
+        stop_event: An Event to set when it is time to stop
+            watching.
+    """
+    with eyeswrapper.EyesWrapper() as eyes_wrapper:
+        watch_dir.watch(path, WindowMatchingEventHandler, stop_event,
+                        eyes=eyes_wrapper.eyes)
 
 
 def main():
@@ -64,11 +80,8 @@ def main():
                  for path in sys.argv[1:] or [os.curdir]])
     for path in paths:
         stop_event = watch_dir.prepare_to_watch(path)
-        threading.Thread(
-            target=(lambda path=path, stop_event=stop_event:
-                    eyes_wrapper.run_eyes(lambda eyes: watch_dir.watch(
-                    path, WindowMatchingEventHandler, stop_event,
-                    eyes=eyes)))).start()
+        threading.Thread(target=lambda path=path, stop_event=stop_event: (
+            _run(path, stop_event))).start()
     try:
         while True:
             time.sleep(1)

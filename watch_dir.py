@@ -5,6 +5,7 @@ import os
 import Queue
 import shutil
 import threading
+import time
 
 from watchdog import events
 from watchdog import observers
@@ -41,13 +42,16 @@ class CreationEventHandler(events.FileSystemEventHandler):
         Args:
             event: The file system event.
         """
-        if os.path.isfile(event.src_path):
-            head, tail = os.path.split(event.src_path)
+        src_path = event.src_path
+        if os.path.isfile(src_path):
+            head, tail = os.path.split(src_path)
             new_path = os.path.join(os.path.dirname(head),
                                     PROCESSING_DIR_NAME, tail)
             if os.path.exists(new_path):
                 os.remove(new_path)
-            os.rename(event.src_path, new_path)
+            shutil.move(src_path, new_path)
+            while os.path.exists(src_path):
+                time.sleep(0.1)
             self._backlog.put(new_path)
 
     def _process(self):
