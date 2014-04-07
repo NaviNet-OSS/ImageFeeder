@@ -1,58 +1,39 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import errno
+from distutils import dir_util
 import os
 import Queue
 import shutil
-import sys
 import threading
-import time
 
-from requests import exceptions
 from watchdog import events
 from watchdog import observers
-
-import eyes_wrapper
 
 
 _STOP_EVENTS = []
 DONE_BASE_NAME = 'done'
-PROCESSING_DIR_NAME = 'Processing'
-ARCHIVE_DIR_NAME = 'Archive'
-
-# The Applitools Eyes Team License limits the number of concurrent
-# tests to n + 1, where n is the number of team members. (We have five
-# members.) However, Applitools does not enforce this limit; until they
-# do, we are free to test as much as we want.
-_MAX_CONCURRENT_TESTS = 6
-_CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
+PROCESSING_DIR_NAME = 'IN-PROGRESS'
+SUCCESS_DIR_NAME = 'DONE'
+FAILURE_DIR_NAME = 'FAILED'
 
 # See http://robotframework.googlecode.com/hg/doc/userguide/RobotFrameworkUserGuide.html#test-library-scope
 ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
 
 
-class WindowMatchingEventHandler(events.FileSystemEventHandler):
-    """Event handler that sends new files to Applitools.
+class CreationEventHandler(events.FileSystemEventHandler):
+    """Event handler for moving new files.
     """
 
-    def __init__(self, eyes, stop_event):
+    def __init__(self):
         """Initializes the event handler.
-
-        Args:
-            eyes: An open Eyes instance to send images through.
-            stop_event: An Event to set when it is time to stop
-                watching.
         """
-        self._eyes = eyes
-        self._stop_event = stop_event
         self._backlog = Queue.Queue()
-        thread = threading.Thread(target=self._send_new_files)
+        thread = threading.Thread(target=self._process)
         thread.daemon = True
         thread.start()
 
     def on_created(self, event):
-        """Queues a new file for sending to Applitools.
+        """Queues a new file for processing.
 
         Does not queue directories. Moves files to a processing
         directory.
@@ -64,78 +45,72 @@ class WindowMatchingEventHandler(events.FileSystemEventHandler):
             head, tail = os.path.split(event.src_path)
             new_path = os.path.join(os.path.dirname(head),
                                     PROCESSING_DIR_NAME, tail)
+            if os.path.exists(new_path):
+                os.remove(new_path)
             os.rename(event.src_path, new_path)
             self._backlog.put(new_path)
 
-    def _send_new_files(self):
-        """Sends a new file to Applitools.
-
-        Silently ignores errors from sending non-image files. Stops
-        watching when a file called 'done' appears in the queue.
+    def _process(self):
+        """Process the backlog.
         """
-        _CONCURRENT_TEST_QUEUE.put(None)
-        while True:
-            path = self._backlog.get()
-            if os.path.basename(path) == DONE_BASE_NAME:
-                # Stop watching the path
-                self._stop_event.set()
-                # Allow another path to be watched
-                _CONCURRENT_TEST_QUEUE.get()
-                _CONCURRENT_TEST_QUEUE.task_done()
-                break
-            try:
-                eyes_wrapper.match_window(self._eyes, path)
-            except exceptions.HTTPError:
-                # The file wasn't a valid image.
-                pass
+        raise NotImplementedError
 
 
-def _send_new_files(path, eyes, stop_event):
-    """Sends new files to Applitools.
+def prepare_to_watch(path):
+    """Prepare to watch a path.
 
-    Watches a directory for files to send. Moves files to an archive
-    directory when done.
+    Creates three processing directories.
+
+    Args:
+        path: The name of the directory to watch, without a trailing
+            directory separator.
+
+    Returns:
+        An Event that signals when to stop watching the path.
+    """
+    # If path has a trailing directory separator, dirname won't work
+    parent = os.path.dirname(path)
+    for new_dir_name in [PROCESSING_DIR_NAME, SUCCESS_DIR_NAME,
+                         FAILURE_DIR_NAME]:
+        new_dir_path = os.path.join(parent, new_dir_name)
+        if os.path.isdir(new_dir_path):
+            shutil.rmtree(new_dir_path)
+        elif os.path.exists(new_dir_path):
+            os.remove(new_dir_path)
+        dir_util.mkpath(new_dir_path)
+    stop_event = threading.Event()
+    _STOP_EVENTS.append(stop_event)
+    return stop_event
+
+
+def watch(path, event_handler_class, stop_event, **kwargs):
+    """Watches a directory for files to send.
 
     Args:
         path: The name of the directory to watch.
-        eyes: An open Eyes instance.
-        stop_event: An Event. When it is set, it is time to stop
-            watching for new files.
+        event_handler_class: The class of the event handler to use.
+        **kwargs: Arbitrary keyword arguments for the event handler's
+            initializer. 'stop_event' is also set to an Event, if not
+            in the dictionary.
+
+    Kwargs:
+        stop_event: An Event which signals when to stop watching.
     """
-    event_handler = WindowMatchingEventHandler(eyes, stop_event)
+    event_handler = event_handler_class(stop_event, **kwargs)
     observer = observers.Observer()
     observer.schedule(event_handler, path)
     observer.start()
     stop_event.wait()
     observer.stop()
     observer.join()
-    archive = os.path.join(os.path.dirname(path), ARCHIVE_DIR_NAME)
-    shutil.rmtree(archive, True)
-    os.rename(os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME),
-              archive)
-
-
-def watch_path(path):
-    """Sends new files to Applitools in another thread.
-
-    Watches a directory for files to send. Moves new files to a
-    processing directory. When a new file is named 'done', it stops
-    watching and moves the files to an archive directory.
-
-    Args:
-        path: The name of the directory to watch, without a trailing
-            directory separator.
-    """
-    try:
-        # If path has a trailing directory separator, this won't work
-        os.makedirs(os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    stop_event = threading.Event()
-    _STOP_EVENTS.append(stop_event)
-    threading.Thread(target=lambda: eyes_wrapper.run_eyes(
-        lambda eyes: _send_new_files(path, eyes, stop_event))).start()
+    src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
+    dst = os.path.join(os.path.dirname(path), SUCCESS_DIR_NAME)
+    dir_util.remove_tree(dst)
+    dir_util.copy_tree(src, dst)
+    for base_name in os.listdir(src):
+        path = os.path.join(src, base_name)
+        if os.path.isfile(path):
+            os.remove(path)
 
 
 def stop_watching():
@@ -143,19 +118,3 @@ def stop_watching():
     """
     for stop_event in _STOP_EVENTS:
         stop_event.set()
-
-
-def main():
-    paths = set([os.path.normcase(os.path.realpath(path))
-                 for path in sys.argv[1:] or [os.curdir]])
-    for path in paths:
-        watch_path(path)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        stop_watching()
-
-
-if __name__ == '__main__':
-    main()

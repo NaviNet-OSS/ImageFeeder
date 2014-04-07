@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-import os.path
+import os
 import sys
 
 from applitools import _match_window_task
