@@ -12,6 +12,7 @@ from requests import exceptions
 import eyeswrapper
 import watch_dir
 
+DONE_BASE_NAME = 'done'
 
 # The Applitools Eyes Team License limits the number of concurrent
 # tests to n + 1, where n is the number of team members. (We have five
@@ -45,7 +46,7 @@ class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
             path = self._backlog.get()
-            if os.path.basename(path) == watch_dir.DONE_BASE_NAME:
+            if os.path.basename(path) == DONE_BASE_NAME:
                 # Stop watching the path
                 self._stop_event.set()
                 # Allow another path to be watched

@@ -12,7 +12,6 @@ from watchdog import observers
 
 
 _STOP_EVENTS = []
-DONE_BASE_NAME = 'done'
 PROCESSING_DIR_NAME = 'IN-PROGRESS'
 SUCCESS_DIR_NAME = 'DONE'
 FAILURE_DIR_NAME = 'FAILED'
@@ -47,17 +46,45 @@ class CreationEventHandler(events.FileSystemEventHandler):
             head, tail = os.path.split(src_path)
             new_path = os.path.join(os.path.dirname(head),
                                     PROCESSING_DIR_NAME, tail)
-            if os.path.exists(new_path):
-                os.remove(new_path)
-            shutil.move(src_path, new_path)
-            while os.path.exists(src_path):
-                time.sleep(0.1)
+            self._mv_f(src_path, new_path)
             self._backlog.put(new_path)
+
+    def _mv_f(self, src, dst):
+        """Moves a regular file.
+
+        Overwrites the destination if it exists but is not a directory.
+
+        Args:
+            src: The path of the source file.
+            dst: The path of the destination.
+        """
+        if os.path.exists(dst):
+            os.remove(dst)
+        os.rename(src, dst)
+        while os.path.exists(src):
+            time.sleep(0.1)  # Wait for the rename to complete
 
     def _process(self):
         """Process the backlog.
         """
         raise NotImplementedError
+
+
+def _make_empty_directory(path):
+    """Clears a directory or deletes a regular file.
+
+    Deletes whatever the path refers to (if anything) and creates an
+    empty directory at that path. The parent of the directory to be
+    created must already exist.
+
+    Args:
+        path: The path to make point to an empty directory.
+    """
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    elif os.path.exists(path):
+        os.remove(path)
+    os.mkdir(path)
 
 
 def prepare_to_watch(path):
@@ -76,12 +103,7 @@ def prepare_to_watch(path):
     parent = os.path.dirname(path)
     for new_dir_name in [PROCESSING_DIR_NAME, SUCCESS_DIR_NAME,
                          FAILURE_DIR_NAME]:
-        new_dir_path = os.path.join(parent, new_dir_name)
-        if os.path.isdir(new_dir_path):
-            shutil.rmtree(new_dir_path)
-        elif os.path.exists(new_dir_path):
-            os.remove(new_dir_path)
-        dir_util.mkpath(new_dir_path)
+        _make_empty_directory(os.path.join(parent, new_dir_name))
     stop_event = threading.Event()
     _STOP_EVENTS.append(stop_event)
     return stop_event
