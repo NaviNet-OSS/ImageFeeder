@@ -23,18 +23,18 @@ _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
 
 class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
-    def __init__(self, stop_event, **kwargs):
+    def __init__(self, stop_queue, **kwargs):
         """Initializes the event handler.
 
         Args:
-            stop_event: An Event to set when it is time to stop
+            stop_queue: A Queue to fill when it is time to stop
                 watching.
 
         Kwargs:
             eyes: An open Eyes instance.
         """
         self._eyes = kwargs.pop('eyes')
-        self._stop_event = stop_event
+        self._stop_queue = stop_queue
         super(self.__class__, self).__init__()
 
     def _process(self):
@@ -48,7 +48,7 @@ class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
             path = self._backlog.get()
             if os.path.basename(path) == DONE_BASE_NAME:
                 # Stop watching the path
-                self._stop_event.set()
+                self._stop_queue.put(True)
                 # Allow another path to be watched
                 _CONCURRENT_TEST_QUEUE.get()
                 _CONCURRENT_TEST_QUEUE.task_done()
@@ -60,7 +60,7 @@ class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
                 pass
 
 
-def _run(path, stop_event):
+def _run(path, stop_queue):
     """Sends new files to Eyes.
 
     Opens Eyes; watches for new files and sends them to Eyes; stops
@@ -68,11 +68,11 @@ def _run(path, stop_event):
 
     Args:
         path: The path to watch.
-        stop_event: An Event to set when it is time to stop
+        stop_queue: A Queue to fill when it is time to stop
             watching.
     """
     with eyeswrapper.EyesWrapper() as eyes_wrapper:
-        watch_dir.watch(path, WindowMatchingEventHandler, stop_event,
+        watch_dir.watch(path, WindowMatchingEventHandler, stop_queue,
                         eyes=eyes_wrapper.eyes)
 
 
@@ -80,9 +80,9 @@ def main():
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in sys.argv[1:] or [os.curdir]])
     for path in paths:
-        stop_event = watch_dir.prepare_to_watch(path)
-        threading.Thread(target=lambda path=path, stop_event=stop_event: (
-            _run(path, stop_event))).start()
+        stop_queue = watch_dir.prepare_to_watch(path)
+        threading.Thread(target=lambda path=path, stop_queue=stop_queue: (
+            _run(path, stop_queue))).start()
     try:
         while True:
             time.sleep(1)
