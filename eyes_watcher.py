@@ -10,7 +10,7 @@ import time
 from requests import exceptions
 
 import eyeswrapper
-import watch_dir
+import watchdir
 
 DONE_BASE_NAME = 'done'
 
@@ -18,11 +18,11 @@ DONE_BASE_NAME = 'done'
 # tests to n + 1, where n is the number of team members. (We have five
 # members.) However, Applitools does not enforce this limit; until they
 # do, we are free to test as much as we want.
-_MAX_CONCURRENT_TESTS = 2
+_MAX_CONCURRENT_TESTS = 6
 _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
 
-class WindowMatchingEventHandler(watch_dir.CreationEventHandler):
+class WindowMatchingEventHandler(watchdir.CreationEventHandler):
     def __init__(self, stop_queue, **kwargs):
         """Initializes the event handler.
 
@@ -72,7 +72,7 @@ def _run(path, stop_queue):
             watching.
     """
     with eyeswrapper.EyesWrapper() as eyes_wrapper:
-        watch_dir.watch(path, WindowMatchingEventHandler, stop_queue,
+        watchdir.watch(path, WindowMatchingEventHandler, stop_queue,
                         eyes=eyes_wrapper.eyes)
 
 
@@ -80,14 +80,14 @@ def main():
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in sys.argv[1:] or [os.curdir]])
     for path in paths:
-        stop_queue = watch_dir.prepare_to_watch(path)
+        stop_queue = watchdir.prepare_to_watch(path)
         threading.Thread(target=lambda path=path, stop_queue=stop_queue: (
             _run(path, stop_queue))).start()
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        watch_dir.stop_watching()
+        watchdir.stop_watching()
 
 
 if __name__ == '__main__':
