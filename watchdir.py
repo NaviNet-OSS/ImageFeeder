@@ -92,26 +92,17 @@ def _make_empty_directory(path):
     os.mkdir(path)
 
 
-class _DummyContextManager(object):
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
-
-
-def watch(path, event_handler_class, context_manager=_DummyContextManager):
+def watch(path, context_manager):
     """Watches a directory for files to send in another thread.
 
-    The event handler's initializer must be able to take two unnamed
-    arguments, the first of which is a Queue to fill to stop watching.
+    The event handler's initializer must be able to take exactly one
+    argument, a Queue to fill to stop watching.
 
     Args:
         path: The name of the directory to watch, without a trailing
             directory separator.
-        event_handler_class: The class of the event handler to use.
-        context_manager: A context manager whose output is passed as the
-            second argument to the event handler's initializer.
+        context_manager: A context manager which produces an event
+            handler.
     """
     # If path has a trailing directory separator, dirname won't work
     parent = os.path.dirname(path)
@@ -120,28 +111,23 @@ def watch(path, event_handler_class, context_manager=_DummyContextManager):
         _make_empty_directory(os.path.join(parent, new_dir_name))
     stop_queue = Queue.Queue()
     _STOP_QUEUES.append(stop_queue)
-    thread = threading.Thread(target=lambda: _watch(
-        path, event_handler_class, stop_queue, context_manager))
+    thread = threading.Thread(target=lambda: _watch(path, context_manager,
+                                                    stop_queue))
     thread.start()
     _WATCHER_THREADS.append(thread)
 
 
-def _watch(path, event_handler_class, stop_queue, context_manager):
+def _watch(path, context_manager, stop_queue):
     """Watches a directory for files to send.
-
-    The event handler's initializer must be able to take two unnamed
-    arguments.
 
     Args:
         path: The name of the directory to watch.
-        event_handler_class: The class of the event handler to use.
-        stop_queue: A Queue to fill to stop watching. It is passed as the
-            first argument to the event handler's initializer.
-        context_manager: A context manager whose output is passed as the
-            second argument to the event handler's initializer.
+        context_manager: A context manager which produces an event
+            handler.
+        stop_queue: A Queue to fill to stop watching. It is passed as
+            the only argument to the event handler's initializer.
     """
-    with context_manager() as context_manager_value:
-        event_handler = event_handler_class(stop_queue, context_manager_value)
+    with context_manager(stop_queue) as event_handler:
         observer = observers.Observer()
         observer.schedule(event_handler, path)
         observer.start()

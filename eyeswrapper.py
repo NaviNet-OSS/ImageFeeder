@@ -96,7 +96,7 @@ class EyesWrapper(object):
         self.eyes = applitools.eyes.Eyes()
         self.eyes.save_failed_tests = self._overwrite_baseline
         self.eyes.open(_FakeWebDriver(), APP_NAME, TEST_NAME)
-        return self.eyes
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Closes the wrapped Eyes instance.

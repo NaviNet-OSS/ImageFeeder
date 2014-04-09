@@ -22,18 +22,18 @@ _MAX_CONCURRENT_TESTS = 6
 _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
 
-class WindowMatchingEventHandler(watchdir.CreationEventHandler):
-    def __init__(self, stop_queue, eyes):
+class WindowMatchingEventHandler(watchdir.CreationEventHandler,
+                                 eyeswrapper.EyesWrapper):
+    def __init__(self, stop_queue):
         """Initializes the event handler.
 
         Args:
             stop_queue: A Queue to fill when it is time to stop
                 watching.
-            eyes: An open Eyes instance.
         """
-        self._eyes = eyes
         self._stop_queue = stop_queue
-        super(self.__class__, self).__init__()
+        for base in self.__class__.__bases__:
+            base.__init__(self)
 
     def _process(self):
         """Sends a new file to Applitools.
@@ -52,7 +52,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler):
                 _CONCURRENT_TEST_QUEUE.task_done()
                 break
             try:
-                eyeswrapper.match_window(self._eyes, path)
+                eyeswrapper.match_window(self.eyes, path)
             except exceptions.HTTPError:
                 # The file wasn't a valid image
                 pass
@@ -68,8 +68,7 @@ def main():
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in sys.argv[1:] or [os.curdir]])
     for path in paths:
-        watchdir.watch(path, WindowMatchingEventHandler,
-                       eyeswrapper.EyesWrapper)
+        watchdir.watch(path, WindowMatchingEventHandler)
     try:
         while True:
             time.sleep(1)
