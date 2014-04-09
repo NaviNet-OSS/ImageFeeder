@@ -10,7 +10,7 @@ import time
 from watchdog import events
 from watchdog import observers
 
-
+_WATCHER_THREADS = []
 _STOP_QUEUES = []
 PROCESSING_DIR_NAME = 'IN-PROGRESS'
 SUCCESS_DIR_NAME = 'DONE'
@@ -24,7 +24,7 @@ class CreationEventHandler(events.FileSystemEventHandler):
     """Event handler for moving new files.
     """
 
-    def __init__(self):
+    def __init__(self, _=None):
         """Initializes the event handler.
         """
         self._backlog = Queue.Queue()
@@ -92,17 +92,26 @@ def _make_empty_directory(path):
     os.mkdir(path)
 
 
-def prepare_to_watch(path):
-    """Prepare to watch a path.
+class _DummyContextManager(object):
+    def __enter__(self):
+        pass
 
-    Creates three processing directories.
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
+def watch(path, event_handler_class, context_manager=_DummyContextManager):
+    """Watches a directory for files to send in another thread.
+
+    The event handler's initializer must be able to take two unnamed
+    arguments, the first of which is a Queue to fill to stop watching.
 
     Args:
         path: The name of the directory to watch, without a trailing
             directory separator.
-
-    Returns:
-        A Queue to fill to stop watching the path.
+        event_handler_class: The class of the event handler to use.
+        context_manager: A context manager whose output is passed as the
+            second argument to the event handler's initializer.
     """
     # If path has a trailing directory separator, dirname won't work
     parent = os.path.dirname(path)
@@ -111,35 +120,43 @@ def prepare_to_watch(path):
         _make_empty_directory(os.path.join(parent, new_dir_name))
     stop_queue = Queue.Queue()
     _STOP_QUEUES.append(stop_queue)
-    return stop_queue
+    thread = threading.Thread(target=lambda: _watch(
+        path, event_handler_class, stop_queue, context_manager))
+    thread.start()
+    _WATCHER_THREADS.append(thread)
 
 
-def watch(path, event_handler_class, stop_queue, **kwargs):
+def _watch(path, event_handler_class, stop_queue, context_manager):
     """Watches a directory for files to send.
+
+    The event handler's initializer must be able to take two unnamed
+    arguments.
 
     Args:
         path: The name of the directory to watch.
         event_handler_class: The class of the event handler to use.
-        stop_queue: A Queue to fill to stop watching.
-        **kwargs: Arbitrary keyword arguments for the event handler's
-            initializer.
+        stop_queue: A Queue to fill to stop watching. It is passed as the
+            first argument to the event handler's initializer.
+        context_manager: A context manager whose output is passed as the
+            second argument to the event handler's initializer.
     """
-    event_handler = event_handler_class(stop_queue, **kwargs)
-    observer = observers.Observer()
-    observer.schedule(event_handler, path)
-    observer.start()
-    success = stop_queue.get()
-    observer.stop()
-    observer.join()
-    src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
-    dst = os.path.join(os.path.dirname(path),
-                       SUCCESS_DIR_NAME if success else FAILURE_DIR_NAME)
-    dir_util.remove_tree(dst)
-    dir_util.copy_tree(src, dst)
-    for base_name in os.listdir(src):
-        path = os.path.join(src, base_name)
-        if os.path.isfile(path):
-            os.remove(path)
+    with context_manager() as context_manager_value:
+        event_handler = event_handler_class(stop_queue, context_manager_value)
+        observer = observers.Observer()
+        observer.schedule(event_handler, path)
+        observer.start()
+        success = stop_queue.get()
+        observer.stop()
+        observer.join()
+        src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
+        dst = os.path.join(os.path.dirname(path),
+                           SUCCESS_DIR_NAME if success else FAILURE_DIR_NAME)
+        dir_util.remove_tree(dst)
+        dir_util.copy_tree(src, dst)
+        for base_name in os.listdir(src):
+            path = os.path.join(src, base_name)
+            if os.path.isfile(path):
+                os.remove(path)
 
 
 def stop_watching():
@@ -147,3 +164,5 @@ def stop_watching():
     """
     for stop_queue in _STOP_QUEUES:
         stop_queue.put(False)
+    for thread in _WATCHER_THREADS:
+        thread.join()

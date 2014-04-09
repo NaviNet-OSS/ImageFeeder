@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import errno
 import os
 import Queue
 import sys
-import threading
 import time
 
 from requests import exceptions
@@ -23,17 +23,15 @@ _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
 
 class WindowMatchingEventHandler(watchdir.CreationEventHandler):
-    def __init__(self, stop_queue, **kwargs):
+    def __init__(self, stop_queue, eyes):
         """Initializes the event handler.
 
         Args:
             stop_queue: A Queue to fill when it is time to stop
                 watching.
-
-        Kwargs:
             eyes: An open Eyes instance.
         """
-        self._eyes = kwargs.pop('eyes')
+        self._eyes = eyes
         self._stop_queue = stop_queue
         super(self.__class__, self).__init__()
 
@@ -56,33 +54,22 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler):
             try:
                 eyeswrapper.match_window(self._eyes, path)
             except exceptions.HTTPError:
-                # The file wasn't a valid image.
+                # The file wasn't a valid image
                 pass
-
-
-def _run(path, stop_queue):
-    """Sends new files to Eyes.
-
-    Opens Eyes; watches for new files and sends them to Eyes; stops
-    watching; closes Eyes.
-
-    Args:
-        path: The path to watch.
-        stop_queue: A Queue to fill when it is time to stop
-            watching.
-    """
-    with eyeswrapper.EyesWrapper() as eyes_wrapper:
-        watchdir.watch(path, WindowMatchingEventHandler, stop_queue,
-                        eyes=eyes_wrapper.eyes)
+            except IOError as e:
+                # If the file does not exist, it must have been moved
+                # to the failure directory. This is expected, so there
+                # is no need to crash.
+                if e.errno != errno.ENOENT:
+                    raise
 
 
 def main():
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in sys.argv[1:] or [os.curdir]])
     for path in paths:
-        stop_queue = watchdir.prepare_to_watch(path)
-        threading.Thread(target=lambda path=path, stop_queue=stop_queue: (
-            _run(path, stop_queue))).start()
+        watchdir.watch(path, WindowMatchingEventHandler,
+                       eyeswrapper.EyesWrapper)
     try:
         while True:
             time.sleep(1)
