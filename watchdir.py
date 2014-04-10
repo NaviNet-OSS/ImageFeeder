@@ -111,8 +111,8 @@ def watch(path, context_manager):
         _make_empty_directory(os.path.join(parent, new_dir_name))
     stop_queue = Queue.Queue()
     _STOP_QUEUES.append(stop_queue)
-    thread = threading.Thread(target=lambda: _watch(path, context_manager,
-                                                    stop_queue))
+    thread = threading.Thread(target=_watch,
+                              args=(path, context_manager, stop_queue))
     thread.start()
     _WATCHER_THREADS.append(thread)
 
