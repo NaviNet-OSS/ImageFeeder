@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
 import errno
 import os
 import Queue
@@ -64,11 +65,28 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
                     raise
 
 
+def _parse_args():
+    """Parse command line arguments.
+
+    Returns:
+        A Namespace containing the parsed arguments.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('paths', nargs='*', default=[os.curdir],
+                        help='path to watch', metavar='PATH')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='print a message when ready to start watching')
+    return parser.parse_args()
+
+
 def main():
+    args = _parse_args()
     paths = set([os.path.normcase(os.path.realpath(path))
-                 for path in sys.argv[1:] or [os.curdir]])
+                 for path in args.paths])
     for path in paths:
         watchdir.watch(path, WindowMatchingEventHandler)
+    if args.verbose:
+        print('Ready to start watching')
     try:
         while True:
             time.sleep(1)
