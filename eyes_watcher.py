@@ -7,12 +7,14 @@ import os
 import Queue
 import time
 
+from applitools import errors
 from requests import exceptions
 
 import eyeswrapper
 import watchdir
 
-DONE_BASE_NAME = 'done'
+_DONE_BASE_NAME = 'done'
+_FAILURE_DIR_NAME = 'FAILED'
 
 # The Applitools Eyes Team License limits the number of concurrent
 # tests to n + 1, where n is the number of team members. (We have five
@@ -44,7 +46,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
             path = self._backlog.get()
-            if os.path.basename(path) == DONE_BASE_NAME:
+            if os.path.basename(path) == _DONE_BASE_NAME:
                 # Stop watching the path
                 self._stop_queue.put(True)
                 # Allow another path to be watched
@@ -62,6 +64,13 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
                 # is no need to crash.
                 if e.errno != errno.ENOENT:
                     raise
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            super(self.__class__, self).__exit__(exc_type, exc_value,
+                                                 traceback)
+        except errors.TestFailedError:
+            raise watchdir.DestinationDirectoryException(_FAILURE_DIR_NAME)
 
 
 def _parse_args():

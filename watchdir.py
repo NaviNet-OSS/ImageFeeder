@@ -13,8 +13,7 @@ from watchdog import observers
 _WATCHER_THREADS = []
 _STOP_QUEUES = []
 PROCESSING_DIR_NAME = 'IN-PROGRESS'
-SUCCESS_DIR_NAME = 'DONE'
-FAILURE_DIR_NAME = 'FAILED'
+DEFAULT_DIR_NAME = 'DONE'
 
 
 class CreationEventHandler(events.FileSystemEventHandler):
@@ -72,6 +71,14 @@ class CreationEventHandler(events.FileSystemEventHandler):
         raise NotImplementedError
 
 
+class DestinationDirectoryException(Exception):
+    """Exception for custom destination directory names.
+
+    Attributes:
+        message: The name of the directory to move files into.
+    """
+
+
 def _make_empty_directory(path):
     """Clears a directory or deletes a regular file.
 
@@ -103,9 +110,7 @@ def watch(path, context_manager):
     """
     # If path has a trailing directory separator, dirname won't work
     parent = os.path.dirname(path)
-    for new_dir_name in [PROCESSING_DIR_NAME, SUCCESS_DIR_NAME,
-                         FAILURE_DIR_NAME]:
-        _make_empty_directory(os.path.join(parent, new_dir_name))
+    _make_empty_directory(os.path.join(parent, PROCESSING_DIR_NAME))
     stop_queue = Queue.Queue()
     _STOP_QUEUES.append(stop_queue)
     thread = threading.Thread(target=_watch,
@@ -136,14 +141,14 @@ def _watch(path, context_manager, stop_queue):
             stop_queue.get()
             observer.stop()
             observer.join()
-    except:
-        success = False
+    except DestinationDirectoryException as e:
+        dst_dir = e.message
     else:
-        success = True
+        dst_dir = DEFAULT_DIR_NAME
     src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
-    dst = os.path.join(os.path.dirname(path),
-                       SUCCESS_DIR_NAME if success else FAILURE_DIR_NAME)
-    dir_util.remove_tree(dst)
+    dst = os.path.join(os.path.dirname(path), dst_dir)
+    if os.path.exists(dst):
+        dir_util.remove_tree(dst)
     dir_util.copy_tree(src, dst)
     for base_name in os.listdir(src):
         path = os.path.join(src, base_name)

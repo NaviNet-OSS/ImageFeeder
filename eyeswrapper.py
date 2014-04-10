@@ -6,7 +6,6 @@ import os
 import sys
 
 from applitools import _match_window_task
-from applitools import errors
 import applitools.eyes
 from selenium.webdriver.remote import webdriver
 
@@ -79,7 +78,8 @@ class EyesWrapper(object):
             """
 
             def __init__(self):
-                """Initializes capabilities."""
+                """Initializes capabilities.
+                """
                 self.capabilities = {'takesScreenshot': True}
 
             def execute_script(self, script, params=None):
