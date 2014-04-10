@@ -5,7 +5,6 @@ import argparse
 import errno
 import os
 import Queue
-import sys
 import time
 
 from requests import exceptions

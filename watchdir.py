@@ -16,9 +16,6 @@ PROCESSING_DIR_NAME = 'IN-PROGRESS'
 SUCCESS_DIR_NAME = 'DONE'
 FAILURE_DIR_NAME = 'FAILED'
 
-# See http://robotframework.googlecode.com/hg/doc/userguide/RobotFrameworkUserGuide.html#test-library-scope
-ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
-
 
 class CreationEventHandler(events.FileSystemEventHandler):
     """Event handler for moving new files.
