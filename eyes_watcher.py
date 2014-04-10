@@ -19,7 +19,7 @@ DONE_BASE_NAME = 'done'
 # members.) However, Applitools does not enforce this limit; until they
 # do, we are free to test as much as we want.
 _MAX_CONCURRENT_TESTS = 6
-_CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
+_CONCURRENT_TEST_QUEUE = None
 
 
 class WindowMatchingEventHandler(watchdir.CreationEventHandler,
@@ -73,13 +73,20 @@ def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='*', default=[os.curdir],
                         help='path to watch', metavar='PATH')
+    parser.add_argument('-t', '--tests',
+                        default=_MAX_CONCURRENT_TESTS, type=int, metavar='N',
+                        help='set the number of tests to run concurrently '
+                        '(default: %(default)d)')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='print a message when ready to start watching')
     return parser.parse_args()
 
 
 def main():
+    global _CONCURRENT_TEST_QUEUE
     args = _parse_args()
+    _MAX_CONCURRENT_TESTS = args.tests
+    _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in args.paths])
     for path in paths:
