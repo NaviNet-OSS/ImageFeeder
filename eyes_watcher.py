@@ -94,7 +94,7 @@ def main():
     if args.verbose:
         print('Ready to start watching')
     try:
-        while True:
+        while watchdir.is_running():
             time.sleep(1)
     except KeyboardInterrupt:
         watchdir.stop_watching()

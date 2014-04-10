@@ -147,5 +147,17 @@ def stop_watching():
     """
     for stop_queue in _STOP_QUEUES:
         stop_queue.put(False)
+    while _WATCHER_THREADS:
+        _WATCHER_THREADS.pop().join()
+
+
+def is_running():
+    """Checks whether any test is still running.
+
+    Returns:
+        Whether any test is still running.
+    """
     for thread in _WATCHER_THREADS:
-        thread.join()
+        if thread.is_alive():
+            return True
+    return False
