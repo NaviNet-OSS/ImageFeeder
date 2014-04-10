@@ -81,7 +81,23 @@ def _parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='*', default=[os.curdir],
-                        help='path to watch', metavar='PATH')
+                        help='path to watch (default: current directory)',
+                        metavar='PATH')
+    parser.add_argument('--done', default=_DONE_BASE_NAME,
+                        help='set the file name which signals the end of a '
+                        'test (default: %(default)s)', metavar='FILENAME')
+    parser.add_argument('--failed', default=_FAILURE_DIR_NAME,
+                        help='set the name of the directory to put files '
+                        'into when an Eyes test fails (default: %(default)s)',
+                        metavar='DIRNAME')
+    parser.add_argument('--in-progress', default=watchdir.PROCESSING_DIR_NAME,
+                        help='set the name of the directory to put files '
+                        'into for processing (default: %(default)s)',
+                        metavar='DIRNAME')
+    parser.add_argument('--passed', default=watchdir.DEFAULT_DIR_NAME,
+                        help='set the name of the directory to put files '
+                        'into when an Eyes test passes (default: '
+                        '%(default)s)', metavar='DIRNAME')
     parser.add_argument('-t', '--tests',
                         default=_MAX_CONCURRENT_TESTS, type=int, metavar='N',
                         help='set the number of tests to run concurrently '
@@ -93,7 +109,14 @@ def _parse_args():
 
 def main():
     global _CONCURRENT_TEST_QUEUE
+    global _DONE_BASE_NAME
+    global _FAILURE_DIR_NAME
+    global _MAX_CONCURRENT_TESTS
     args = _parse_args()
+    _DONE_BASE_NAME = args.done
+    _FAILURE_DIR_NAME = args.failed
+    watchdir.PROCESSING_DIR_NAME = args.in_progress
+    watchdir.DEFAULT_DIR_NAME = args.passed
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
     paths = set([os.path.normcase(os.path.realpath(path))
