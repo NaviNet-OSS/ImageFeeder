@@ -111,8 +111,6 @@ class EyesWrapper(object):
         """
         try:
             self.eyes.close()
-        except errors.TestFailedError as e:
-            print(e)
         finally:
             self.eyes.abort_if_not_closed()
 

@@ -117,6 +117,10 @@ def watch(path, context_manager):
 def _watch(path, context_manager, stop_queue):
     """Watches a directory for files to send.
 
+    Moves files on completion of a test. If the test (including
+    entering and exiting the context manager) raises an exception, the
+    new directory is FAILED. Otherwise, it is DONE.
+
     Args:
         path: The name of the directory to watch.
         context_manager: A context manager which produces an event
@@ -124,22 +128,27 @@ def _watch(path, context_manager, stop_queue):
         stop_queue: A Queue to fill to stop watching. It is passed as
             the only argument to the event handler's initializer.
     """
-    with context_manager(stop_queue) as event_handler:
-        observer = observers.Observer()
-        observer.schedule(event_handler, path)
-        observer.start()
-        success = stop_queue.get()
-        observer.stop()
-        observer.join()
-        src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
-        dst = os.path.join(os.path.dirname(path),
-                           SUCCESS_DIR_NAME if success else FAILURE_DIR_NAME)
-        dir_util.remove_tree(dst)
-        dir_util.copy_tree(src, dst)
-        for base_name in os.listdir(src):
-            path = os.path.join(src, base_name)
-            if os.path.isfile(path):
-                os.remove(path)
+    try:
+        with context_manager(stop_queue) as event_handler:
+            observer = observers.Observer()
+            observer.schedule(event_handler, path)
+            observer.start()
+            stop_queue.get()
+            observer.stop()
+            observer.join()
+    except:
+        success = False
+    else:
+        success = True
+    src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
+    dst = os.path.join(os.path.dirname(path),
+                       SUCCESS_DIR_NAME if success else FAILURE_DIR_NAME)
+    dir_util.remove_tree(dst)
+    dir_util.copy_tree(src, dst)
+    for base_name in os.listdir(src):
+        path = os.path.join(src, base_name)
+        if os.path.isfile(path):
+            os.remove(path)
 
 
 def stop_watching():
