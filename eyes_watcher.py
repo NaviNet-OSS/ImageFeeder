@@ -26,14 +26,14 @@ _CONCURRENT_TEST_QUEUE = None
 
 class WindowMatchingEventHandler(watchdir.CreationEventHandler,
                                  eyeswrapper.EyesWrapper):
-    def __init__(self, stop_queue):
+    def __init__(self, stop_event):
         """Initializes the event handler.
 
         Args:
-            stop_queue: A Queue to fill when it is time to stop
+            stop_event: An Event to set when it is time to stop
                 watching.
         """
-        self._stop_queue = stop_queue
+        self._stop_event = stop_event
         for base in self.__class__.__bases__:
             base.__init__(self)
 
@@ -48,7 +48,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             path = self._backlog.get()
             if os.path.basename(path) == _DONE_BASE_NAME:
                 # Stop watching the path
-                self._stop_queue.put(True)
+                self._stop_event.set()
                 # Allow another path to be watched
                 _CONCURRENT_TEST_QUEUE.get()
                 _CONCURRENT_TEST_QUEUE.task_done()

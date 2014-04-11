@@ -12,7 +12,7 @@ from watchdog import events
 from watchdog import observers
 
 _WATCHER_THREADS = []
-_STOP_QUEUES = []
+_STOP_EVENTS = []
 PROCESSING_DIR_NAME = 'IN-PROGRESS'
 DEFAULT_DIR_NAME = 'DONE'
 
@@ -104,7 +104,7 @@ def watch(path, context_manager):
     """Watches a directory for files to send in another thread.
 
     The event handler's initializer must be able to take exactly one
-    argument, a Queue to fill to stop watching.
+    argument, an Event to set to stop watching.
 
     Args:
         path: The name of the directory to watch, without a trailing
@@ -115,15 +115,15 @@ def watch(path, context_manager):
     # If path has a trailing directory separator, dirname won't work
     parent = os.path.dirname(path)
     _make_empty_directory(os.path.join(parent, PROCESSING_DIR_NAME))
-    stop_queue = Queue.Queue()
-    _STOP_QUEUES.append(stop_queue)
+    stop_event = threading.Event()
+    _STOP_EVENTS.append(stop_event)
     thread = threading.Thread(target=_watch,
-                              args=(path, context_manager, stop_queue))
+                              args=(path, context_manager, stop_event))
     thread.start()
     _WATCHER_THREADS.append(thread)
 
 
-def _watch(path, context_manager, stop_queue):
+def _watch(path, context_manager, stop_event):
     """Watches a directory for files to send.
 
     Moves files on completion of a test. If the test (including
@@ -134,16 +134,16 @@ def _watch(path, context_manager, stop_queue):
         path: The name of the directory to watch.
         context_manager: A context manager which produces an event
             handler.
-        stop_queue: A Queue to fill to stop watching. It is passed as
+        stop_event: An Event to set to stop watching. It is passed as
             the only argument to the event handler's initializer.
     """
     logging.info('Watching directory: {}'.format(path))
     try:
-        with context_manager(stop_queue) as event_handler:
+        with context_manager(stop_event) as event_handler:
             observer = observers.Observer()
             observer.schedule(event_handler, path)
             observer.start()
-            stop_queue.get()
+            stop_event.wait()
             observer.stop()
             observer.join()
     except DestinationDirectoryException as e:
@@ -165,8 +165,8 @@ def _watch(path, context_manager, stop_queue):
 def stop_watching():
     """Stops watching all directories.
     """
-    for stop_queue in _STOP_QUEUES:
-        stop_queue.put(False)
+    for stop_event in _STOP_EVENTS:
+        stop_event.set()
     while _WATCHER_THREADS:
         _WATCHER_THREADS.pop().join()
 
