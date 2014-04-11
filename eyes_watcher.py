@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import errno
+import logging
 import os
 import Queue
 import time
@@ -56,20 +56,14 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             try:
                 eyeswrapper.match_window(self.eyes, path)
             except exceptions.HTTPError:
-                # The file wasn't a valid image
-                pass
-            except IOError as e:
-                # If the file does not exist, it must have been moved
-                # to the failure directory. This is expected, so there
-                # is no need to crash.
-                if e.errno != errno.ENOENT:
-                    raise
+                logging.warn('Invalid image: {}'.format(path))
 
     def __exit__(self, exc_type, exc_value, traceback):
         try:
             super(self.__class__, self).__exit__(exc_type, exc_value,
                                                  traceback)
-        except errors.TestFailedError:
+        except errors.TestFailedError as e:
+            logging.info(e.message)
             raise watchdir.DestinationDirectoryException(_FAILURE_DIR_NAME)
 
 
@@ -80,9 +74,6 @@ def _parse_args():
         A Namespace containing the parsed arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('paths', nargs='*', default=[os.curdir],
-                        help='path to watch (default: current directory)',
-                        metavar='PATH')
     parser.add_argument('--done', default=_DONE_BASE_NAME,
                         help='set the file name which signals the end of a '
                         'test (default: %(default)s)', metavar='FILENAME')
@@ -94,6 +85,9 @@ def _parse_args():
                         help='set the name of the directory to put files '
                         'into for processing (default: %(default)s)',
                         metavar='DIRNAME')
+    parser.add_argument('--log', default='WARNING', type=str.upper,
+                        help='set the logging level (default: %(default)s)',
+                        metavar='LEVEL')
     parser.add_argument('--passed', default=watchdir.DEFAULT_DIR_NAME,
                         help='set the name of the directory to put files '
                         'into when an Eyes test passes (default: '
@@ -101,9 +95,10 @@ def _parse_args():
     parser.add_argument('-t', '--tests',
                         default=_MAX_CONCURRENT_TESTS, type=int, metavar='N',
                         help='set the number of tests to run concurrently '
-                        '(default: %(default)d)')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='print a message when ready to start watching')
+                        '(default: %(default)d; N <= 0 means unlimited)')
+    parser.add_argument('paths', nargs='*', default=[os.curdir],
+                        help='path to watch (default: current directory)',
+                        metavar='PATH')
     return parser.parse_args()
 
 
@@ -113,6 +108,8 @@ def main():
     global _FAILURE_DIR_NAME
     global _MAX_CONCURRENT_TESTS
     args = _parse_args()
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+                        level=args.log)
     _DONE_BASE_NAME = args.done
     _FAILURE_DIR_NAME = args.failed
     watchdir.PROCESSING_DIR_NAME = args.in_progress
@@ -123,8 +120,7 @@ def main():
                  for path in args.paths])
     for path in paths:
         watchdir.watch(path, WindowMatchingEventHandler)
-    if args.verbose:
-        print('Ready to start watching')
+    logging.info('Ready to start watching')
     try:
         while watchdir.is_running():
             time.sleep(1)

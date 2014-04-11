@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+import logging
 import os
 import sys
 
@@ -23,6 +24,7 @@ def match_window(eyes, path):
         eyes: An open Eyes instance.
         path: The path of an image. The file name is used as the tag.
     """
+    logging.info('Matching file against baseline: {}'.format(path))
     if not eyes._running_session:
         eyes._start_session()
         eyes._match_window_task = _match_window_task.MatchWindowTask(
@@ -100,9 +102,6 @@ class EyesWrapper(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Closes the wrapped Eyes instance.
-
-        Prints a message to standard output if the images did not match
-        the baseline.
 
         Args:
             exc_type: Type of the raised exception.

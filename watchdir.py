@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from distutils import dir_util
+import logging
 import os
 import Queue
 import shutil
@@ -39,6 +40,7 @@ class CreationEventHandler(events.FileSystemEventHandler):
         """
         src_path = event.src_path
         if os.path.isfile(src_path):
+            logging.info('Created file: {}'.format(src_path))
             head, tail = os.path.split(src_path)
             new_path = os.path.join(os.path.dirname(head),
                                     PROCESSING_DIR_NAME, tail)
@@ -54,6 +56,7 @@ class CreationEventHandler(events.FileSystemEventHandler):
             src: The path of the source file.
             dst: The path of the destination.
         """
+        logging.debug('Moving {} to {}'.format(src, dst))
         while os.path.exists(dst):
             try:
                 os.remove(dst)
@@ -89,6 +92,7 @@ def _make_empty_directory(path):
     Args:
         path: The path to make point to an empty directory.
     """
+    logging.debug('Clearing directory: {}'.format(path))
     if os.path.isdir(path):
         shutil.rmtree(path)
     elif os.path.exists(path):
@@ -133,6 +137,7 @@ def _watch(path, context_manager, stop_queue):
         stop_queue: A Queue to fill to stop watching. It is passed as
             the only argument to the event handler's initializer.
     """
+    logging.info('Watching directory: {}'.format(path))
     try:
         with context_manager(stop_queue) as event_handler:
             observer = observers.Observer()
@@ -147,6 +152,7 @@ def _watch(path, context_manager, stop_queue):
         dst_dir = DEFAULT_DIR_NAME
     src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
     dst = os.path.join(os.path.dirname(path), dst_dir)
+    logging.debug('Moving {} to {}'.format(src, dst))
     if os.path.exists(dst):
         dir_util.remove_tree(dst)
     dir_util.copy_tree(src, dst)
