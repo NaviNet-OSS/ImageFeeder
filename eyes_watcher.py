@@ -40,8 +40,8 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
     def _process(self):
         """Sends a new file to Applitools.
 
-        Silently ignores errors from sending non-image files. Stops
-        watching when a file called 'done' appears in the queue.
+        Ignores errors from sending non-image files. Stops watching
+        when the "done" file (set by --done) appears in the queue.
         """
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
@@ -62,8 +62,10 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
         try:
             super(self.__class__, self).__exit__(exc_type, exc_value,
                                                  traceback)
+        except errors.NewTestError as e:
+            logging.info(e)
         except errors.TestFailedError as e:
-            logging.info(e.message)
+            logging.info(e)
             raise watchdir.DestinationDirectoryException(_FAILURE_DIR_NAME)
 
 
@@ -74,28 +76,30 @@ def _parse_args():
         A Namespace containing the parsed arguments.
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('--app', default=eyeswrapper.APP_NAME,
+                        help='run against the APP baseline (default: '
+                        '%(default)s)')
     parser.add_argument('--done', default=_DONE_BASE_NAME,
-                        help='set the file name which signals the end of a '
-                        'test (default: %(default)s)', metavar='FILENAME')
+                        help='end a test when FILENAME is created (default: '
+                        '%(default)s)', metavar='FILENAME')
     parser.add_argument('--failed', default=_FAILURE_DIR_NAME,
-                        help='set the name of the directory to put files '
-                        'into when an Eyes test fails (default: %(default)s)',
-                        metavar='DIRNAME')
+                        help='put files into DIRNAME when an Eyes test fails '
+                        '(default: %(default)s)', metavar='DIRNAME')
     parser.add_argument('--in-progress', default=watchdir.PROCESSING_DIR_NAME,
-                        help='set the name of the directory to put files '
-                        'into for processing (default: %(default)s)',
-                        metavar='DIRNAME')
+                        help='put files into DIRNAME for processing '
+                        '(default: %(default)s)', metavar='DIRNAME')
     parser.add_argument('--log', default='WARNING', type=str.upper,
                         help='set the logging level (default: %(default)s)',
                         metavar='LEVEL')
     parser.add_argument('--passed', default=watchdir.DEFAULT_DIR_NAME,
-                        help='set the name of the directory to put files '
-                        'into when an Eyes test passes (default: '
-                        '%(default)s)', metavar='DIRNAME')
-    parser.add_argument('-t', '--tests',
-                        default=_MAX_CONCURRENT_TESTS, type=int, metavar='N',
-                        help='set the number of tests to run concurrently '
-                        '(default: %(default)d; N <= 0 means unlimited)')
+                        help='put files into DIRNAME when an Eyes test '
+                        'passes (default: %(default)s)', metavar='DIRNAME')
+    parser.add_argument('-t', '--tests', default=_MAX_CONCURRENT_TESTS,
+                        type=int, help='run N tests concurrently (N <= 0 '
+                        'means unlimited; default: %(default)d)',
+                        metavar='N')
+    parser.add_argument('--test', default=eyeswrapper.TEST_NAME,
+                        help='set the test name (default: %(default)s)')
     parser.add_argument('paths', nargs='*', default=[os.curdir],
                         help='path to watch (default: current directory)',
                         metavar='PATH')
@@ -110,12 +114,14 @@ def main():
     args = _parse_args()
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                         level=args.log)
+    eyeswrapper.APP_NAME = args.app
     _DONE_BASE_NAME = args.done
     _FAILURE_DIR_NAME = args.failed
     watchdir.PROCESSING_DIR_NAME = args.in_progress
     watchdir.DEFAULT_DIR_NAME = args.passed
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
+    eyeswrapper.TEST_NAME = args.test
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in args.paths])
     for path in paths:
