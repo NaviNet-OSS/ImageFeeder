@@ -61,7 +61,6 @@ class EyesWrapper(object):
     def __enter__(self):
         """Opens an Eyes instance.
 
-
         Returns:
             The EyesWrapper.
         """
@@ -72,6 +71,7 @@ class EyesWrapper(object):
             a web driver to trick it into working.
 
             Attributes:
+                _switch_to: Anything. It must exist, though.
                 capabilities: A dictionary of capability names to
                     booleans. The only one that matters is
                     'takesScreenshot', which must be True, or else
@@ -82,6 +82,7 @@ class EyesWrapper(object):
             def __init__(self):
                 """Initializes capabilities.
                 """
+                self._switch_to = None
                 self.capabilities = {'takesScreenshot': True}
 
             def execute_script(self, script, params=None):
