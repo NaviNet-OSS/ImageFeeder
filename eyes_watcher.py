@@ -9,6 +9,7 @@ import Queue
 import time
 
 from applitools import errors
+from applitools import eyes
 
 import eyeswrapper
 import watchdir
@@ -49,7 +50,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
     """Event handler for moving new files and uploading them to Eyes.
     """
 
-    def __init__(self, stop_event):
+    def __init__(self, stop_event, batch_info):
         """Initializes the event handler.
 
         Args:
@@ -60,7 +61,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
         self._path_cache = _GrowingList()
         self._stop_event = stop_event
         for base in self.__class__.__bases__:
-            base.__init__(self)
+            base.__init__(self, batch_info)
 
     def _process(self):
         """Sends new files to Applitools.
@@ -134,6 +135,8 @@ def _parse_args():
     parser.add_argument('--array-base', default=_ARRAY_BASE, type=int,
                         help='upload the image with index N first (default: '
                         '%(default)s)', metavar='N')
+    parser.add_argument('--batch',
+                        help='batch all directories together under BATCH')
     parser.add_argument('--done', default=_DONE_BASE_NAME,
                         help='end a test when FILENAME is created (default: '
                         '%(default)s)', metavar='FILENAME')
@@ -172,6 +175,9 @@ def main():
                         level=args.log)
     eyeswrapper.APP_NAME = args.app
     _ARRAY_BASE = args.array_base
+    batch_info = None
+    if args.batch:
+        batch_info = eyes.BatchInfo(args.batch)
     _DONE_BASE_NAME = args.done
     _FAILURE_DIR_NAME = args.failed
     watchdir.PROCESSING_DIR_NAME = args.in_progress
@@ -182,7 +188,7 @@ def main():
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in args.paths])
     for path in paths:
-        watchdir.watch(path, WindowMatchingEventHandler)
+        watchdir.watch(path, WindowMatchingEventHandler, batch_info)
     logging.info('Ready to start watching')
     try:
         while watchdir.is_running():
