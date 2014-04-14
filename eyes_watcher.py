@@ -4,11 +4,11 @@
 import argparse
 import logging
 import os
+import re
 import Queue
 import time
 
 from applitools import errors
-from requests import exceptions
 
 import eyeswrapper
 import watchdir
@@ -24,8 +24,30 @@ _MAX_CONCURRENT_TESTS = 6
 _CONCURRENT_TEST_QUEUE = None
 
 
+class _GrowingList(list):
+    """List that grows when needed.
+    """
+
+    def __setitem__(self, index, value):
+        """Sets the value at an index.
+
+        If the index is out of bounds, grows the list to be long
+        enough, filling unspecified indexes with None.
+
+        Args:
+            index: An index.
+            value: A value.
+        """
+        if index >= len(self):
+            self.extend([None] * (index + 1 - len(self)))
+        super(self.__class__, self).__setitem__(index, value)
+
+
 class WindowMatchingEventHandler(watchdir.CreationEventHandler,
                                  eyeswrapper.EyesWrapper):
+    """Event handler for moving new files and uploading them to Eyes.
+    """
+
     def __init__(self, stop_event):
         """Initializes the event handler.
 
@@ -33,30 +55,59 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             stop_event: An Event to set when it is time to stop
                 watching.
         """
+        self._next_index = 0
+        self._path_cache = _GrowingList()
         self._stop_event = stop_event
         for base in self.__class__.__bases__:
             base.__init__(self)
 
     def _process(self):
-        """Sends a new file to Applitools.
+        """Sends new files to Applitools.
 
-        Ignores errors from sending non-image files. Stops watching
-        when the "done" file (set by --done) appears in the queue.
+        Each image file must include an integer index somewhere in its
+        name. This method uploads them in order of their indexes,
+        starting at 0. If two files include the same integer, only the
+        first is used.
+
+        Stops watching when the "done" file (set by --done) appears in
+        the queue.
+
+        Ignores files without indexes.
         """
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
             path = self._backlog.get()
-            if os.path.basename(path) == _DONE_BASE_NAME:
+            basename = os.path.basename(path)
+            if basename == _DONE_BASE_NAME:
+                # Upload whatever files are left
+                for path in self._path_cache[self._next_index:]:
+                    if path:
+                        eyeswrapper.match(self.eyes, path)
                 # Stop watching the path
                 self._stop_event.set()
                 # Allow another path to be watched
                 _CONCURRENT_TEST_QUEUE.get()
                 _CONCURRENT_TEST_QUEUE.task_done()
                 break
-            try:
-                eyeswrapper.match_window(self.eyes, path)
-            except exceptions.HTTPError:
-                logging.warn('Invalid image: {}'.format(path))
+            match = re.search(r'\d+', basename)
+            if match:
+                matched_index = int(match.group())
+                if matched_index < self._next_index:
+                    logging.warn(
+                        'Ignoring file with repeated index: {}'.format(path))
+                else:
+                    self._path_cache[matched_index] = path
+                    try:
+                        while self._path_cache[self._next_index]:
+                            eyeswrapper.match(
+                                self.eyes, self._path_cache[self._next_index])
+                            self._next_index += 1
+                    except IndexError:
+                        pass
+            else:
+                logging.warn('No index in file name: {}'.format(path))
+            logging.debug('Wrong order cache: {}'.format(
+                self._path_cache[self._next_index + 1:]))
 
     def __exit__(self, exc_type, exc_value, traceback):
         try:

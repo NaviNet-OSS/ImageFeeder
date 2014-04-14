@@ -8,6 +8,7 @@ import sys
 
 from applitools import _match_window_task
 import applitools.eyes
+from requests import exceptions
 from selenium.webdriver.remote import webdriver
 
 
@@ -15,6 +16,21 @@ applitools.eyes.Eyes.api_key = (
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 APP_NAME = 'app'
 TEST_NAME = 'test'
+
+
+def match(eyes, path):
+    """Sends a file to Applitools for matching.
+
+    Ignores errors from sending non-image files.
+
+    Args:
+        eyes: An open Eyes instance.
+        path: The path of an image. The file name is used as the tag.
+    """
+    try:
+        match_window(eyes, path)
+    except exceptions.HTTPError:
+        logging.warn('Invalid image: {}'.format(path))
 
 
 def match_window(eyes, path):
