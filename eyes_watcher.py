@@ -15,6 +15,7 @@ import watchdir
 
 _DONE_BASE_NAME = 'done'
 _FAILURE_DIR_NAME = 'FAILED'
+_ARRAY_BASE = 0
 
 # The Applitools Eyes Team License limits the number of concurrent
 # tests to n + 1, where n is the number of team members. (We have five
@@ -55,7 +56,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             stop_event: An Event to set when it is time to stop
                 watching.
         """
-        self._next_index = 0
+        self._next_index = _ARRAY_BASE
         self._path_cache = _GrowingList()
         self._stop_event = stop_event
         for base in self.__class__.__bases__:
@@ -130,6 +131,9 @@ def _parse_args():
     parser.add_argument('--app', default=eyeswrapper.APP_NAME,
                         help='run against the APP baseline (default: '
                         '%(default)s)')
+    parser.add_argument('--array-base', default=_ARRAY_BASE, type=int,
+                        help='upload the image with index N first (default: '
+                        '%(default)s)', metavar='N')
     parser.add_argument('--done', default=_DONE_BASE_NAME,
                         help='end a test when FILENAME is created (default: '
                         '%(default)s)', metavar='FILENAME')
@@ -161,11 +165,13 @@ def main():
     global _CONCURRENT_TEST_QUEUE
     global _DONE_BASE_NAME
     global _FAILURE_DIR_NAME
+    global _ARRAY_BASE
     global _MAX_CONCURRENT_TESTS
     args = _parse_args()
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
                         level=args.log)
     eyeswrapper.APP_NAME = args.app
+    _ARRAY_BASE = args.array_base
     _DONE_BASE_NAME = args.done
     _FAILURE_DIR_NAME = args.failed
     watchdir.PROCESSING_DIR_NAME = args.in_progress
