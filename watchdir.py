@@ -9,7 +9,7 @@ import threading
 import time
 
 from watchdog import events
-from watchdog import observers
+from watchdog.observers import polling
 
 _WATCHER_THREADS = []
 _STOP_EVENTS = []
@@ -40,7 +40,7 @@ class CreationEventHandler(events.FileSystemEventHandler):
         """
         src_path = event.src_path
         if os.path.isfile(src_path):
-            logging.info('Created file: {}'.format(src_path))
+            logging.debug('Created file: {}'.format(src_path))
             head, tail = os.path.split(src_path)
             new_path = os.path.join(os.path.dirname(head),
                                     PROCESSING_DIR_NAME, tail)
@@ -140,7 +140,7 @@ def _watch(path, context_manager, stop_event):
     logging.info('Watching directory: {}'.format(path))
     try:
         with context_manager(stop_event) as event_handler:
-            observer = observers.Observer()
+            observer = polling.PollingObserver()
             observer.schedule(event_handler, path)
             observer.start()
             stop_event.wait()
