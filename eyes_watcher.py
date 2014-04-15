@@ -20,6 +20,7 @@ import watchdir
 _DONE_BASE_NAME = 'done'
 _FAILURE_DIR_NAME = 'FAILED'
 _ARRAY_BASE = 0
+_LOGGER = logging.getLogger(__name__)
 
 # The Applitools Eyes Team License limits the number of concurrent
 # tests to n + 1, where n is the number of team members. (We have five
@@ -92,7 +93,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
                 # The file has an index and should be uploaded.
                 matched_index = int(match.group())
                 if matched_index < self._next_index:
-                    logging.warn(
+                    _LOGGER.warn(
                         'Ignoring file with repeated index: {}'.format(path))
                 else:
                     self._path_cache[matched_index] = path
@@ -108,8 +109,8 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
                         # expected when the cache has no holes in it.
                         pass
             else:
-                logging.warn('No index in file name: {}'.format(path))
-            logging.debug('Wrong order cache: {}'.format(
+                _LOGGER.warn('No index in file name: {}'.format(path))
+            _LOGGER.debug('Wrong order cache: {}'.format(
                 self._path_cache[self._next_index + 1:]))
 
     def _stop(self):
@@ -130,9 +131,9 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             super(self.__class__, self).__exit__(exc_type, exc_value,
                                                  traceback)
         except errors.NewTestError as error:
-            logging.info(error)
+            _LOGGER.info(error)
         except errors.TestFailedError as error:
-            logging.info(error)
+            _LOGGER.info(error)
             raise watchdir.DestinationDirectoryException(_FAILURE_DIR_NAME)
 
 
@@ -147,7 +148,7 @@ def _parse_args():
                         help='run against the APP baseline (default: '
                         '%(default)s)')
     parser.add_argument('--array-base', default=_ARRAY_BASE, type=int,
-                        help='upload the image with index N first (default: '
+                        help='start uploading images from index N (default: '
                         '%(default)s)', metavar='N')
     parser.add_argument('--batch',
                         help='batch all directories together under BATCH')
@@ -184,14 +185,34 @@ def main():
     Use --help for full command line option documentation.
     """
     # pylint: disable=global-statement
+    global _ARRAY_BASE
     global _CONCURRENT_TEST_QUEUE
     global _DONE_BASE_NAME
     global _FAILURE_DIR_NAME
-    global _ARRAY_BASE
     global _MAX_CONCURRENT_TESTS
     args = _parse_args()
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                        level=args.log)
+
+    # Logging
+    _LOGGER.setLevel(args.log)
+    handler = logging.StreamHandler()
+    handler.setLevel(args.log)
+    handler.setFormatter(
+        logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    _LOGGER.addHandler(handler)
+    _LOGGER.propagate = False
+    if _LOGGER.getEffectiveLevel() <= logging.DEBUG:
+        from applitools import logger
+        eyes_logger = logger.StdoutLogger()
+        # pylint: disable=protected-access
+        eyes_logger._logger.propagate = False
+        # pylint: enable=protected-access
+        logger.set_logger(eyes_logger)
+        requests_logger = logging.getLogger('requests.packages.urllib3')
+        requests_logger.addHandler(handler)
+        requests_logger.setLevel(logging.DEBUG)
+        requests_logger.propagate = False
+
+    # Command line arguments
     eyeswrapper.APP_NAME = args.app
     _ARRAY_BASE = args.array_base
     batch_info = None
@@ -201,16 +222,18 @@ def main():
     _FAILURE_DIR_NAME = args.failed
     watchdir.PROCESSING_DIR_NAME = args.in_progress
     watchdir.DEFAULT_DIR_NAME = args.passed
-    _MAX_CONCURRENT_TESTS = args.tests
-    _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
     if args.test:
         eyeswrapper.TEST_NAME = args.test
+    _MAX_CONCURRENT_TESTS = args.tests
+    _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
+
+    # Watching
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in args.paths])
     for path in paths:
         watchdir.watch(path, WindowMatchingEventHandler,
                        batch_info=batch_info, test_name=args.test or path)
-    logging.info('Ready to start watching')
+    _LOGGER.info('Ready to start watching')
     try:
         while watchdir.is_running():
             time.sleep(1)
