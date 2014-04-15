@@ -21,7 +21,7 @@ class CreationEventHandler(events.FileSystemEventHandler):
     """Event handler for moving new files.
     """
 
-    def __init__(self, _=None):
+    def __init__(self, **kwargs):
         """Initializes the event handler.
         """
         self._backlog = Queue.Queue()
@@ -100,7 +100,7 @@ def _make_empty_directory(path):
     os.mkdir(path)
 
 
-def watch(path, context_manager, *args):
+def watch(path, context_manager, **kwargs):
     """Watches a directory for files to send in another thread.
 
     The event handler's initializer must be able to take exactly one
@@ -111,7 +111,7 @@ def watch(path, context_manager, *args):
             directory separator.
         context_manager: A context manager which produces an event
             handler.
-        *args: Arguments for context_manager.
+        **kwargs: Keyword arguments for context_manager.
     """
     # If path has a trailing directory separator, dirname won't work
     parent = os.path.dirname(path)
@@ -119,12 +119,13 @@ def watch(path, context_manager, *args):
     stop_event = threading.Event()
     _STOP_EVENTS.append(stop_event)
     thread = threading.Thread(target=_watch,
-                              args=(path, context_manager, stop_event) + args)
+                              args=(path, context_manager, stop_event),
+                              kwargs=kwargs)
     thread.start()
     _WATCHER_THREADS.append(thread)
 
 
-def _watch(path, context_manager, stop_event, *args):
+def _watch(path, context_manager, stop_event, **kwargs):
     """Watches a directory for files to send.
 
     Moves files on completion of a test. If the test (including
@@ -137,11 +138,11 @@ def _watch(path, context_manager, stop_event, *args):
             handler.
         stop_event: An Event to set to stop watching. It is passed as
             the first argument to the event handler's initializer.
-        *args: More arguments for context_manager.
+        **kwargs: Keyword arguments for context_manager.
     """
     logging.info('Watching directory: {}'.format(path))
     try:
-        with context_manager(stop_event, *args) as event_handler:
+        with context_manager(stop_event, **kwargs) as event_handler:
             observer = polling.PollingObserver()
             observer.schedule(event_handler, path)
             observer.start()

@@ -50,7 +50,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
     """Event handler for moving new files and uploading them to Eyes.
     """
 
-    def __init__(self, stop_event, batch_info):
+    def __init__(self, stop_event, **kwargs):
         """Initializes the event handler.
 
         Args:
@@ -61,7 +61,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
         self._path_cache = _GrowingList()
         self._stop_event = stop_event
         for base in self.__class__.__bases__:
-            base.__init__(self, batch_info)
+            base.__init__(self, **kwargs)
 
     def _process(self):
         """Sends new files to Applitools.
@@ -156,7 +156,7 @@ def _parse_args():
                         type=int, help='run N tests concurrently (N <= 0 '
                         'means unlimited; default: %(default)d)',
                         metavar='N')
-    parser.add_argument('--test', default=eyeswrapper.TEST_NAME,
+    parser.add_argument('--test',
                         help='set the test name (default: %(default)s)')
     parser.add_argument('paths', nargs='*', default=[os.curdir],
                         help='path to watch (default: current directory)',
@@ -184,11 +184,13 @@ def main():
     watchdir.DEFAULT_DIR_NAME = args.passed
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
-    eyeswrapper.TEST_NAME = args.test
+    if args.test:
+        eyeswrapper.TEST_NAME = args.test
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in args.paths])
     for path in paths:
-        watchdir.watch(path, WindowMatchingEventHandler, batch_info)
+        watchdir.watch(path, WindowMatchingEventHandler,
+                       batch_info=batch_info, test_name=args.test or path)
     logging.info('Ready to start watching')
     try:
         while watchdir.is_running():

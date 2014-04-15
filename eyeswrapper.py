@@ -66,15 +66,17 @@ class EyesWrapper(object):
     Attributes:
         eyes: The wrapped Eyes instance.
     """
-    def __init__(self, batch_info=None, overwrite_baseline=False):
+    def __init__(self, **kwargs):
         """Initializes the Eyes wrapper.
 
         Args:
             batch_info: A BatchInfo or None.
             overwrite_baseline: Whether to overwrite the baseline.
+            test_name: The test name.
         """
-        self.batch_info = batch_info
-        self._overwrite_baseline = overwrite_baseline
+        self._batch_info = kwargs.pop('batch_info', None)
+        self._overwrite_baseline = kwargs.pop('overwrite_baseline', False)
+        self._test_name = kwargs.pop('test_name', TEST_NAME)
 
     def __enter__(self):
         """Opens an Eyes instance.
@@ -115,9 +117,9 @@ class EyesWrapper(object):
                 return 0
 
         self.eyes = applitools.eyes.Eyes()
-        self.eyes.batch = self.batch_info
+        self.eyes.batch = self._batch_info
         self.eyes.save_failed_tests = self._overwrite_baseline
-        self.eyes.open(_FakeWebDriver(), APP_NAME, TEST_NAME)
+        self.eyes.open(_FakeWebDriver(), APP_NAME, self._test_name)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
