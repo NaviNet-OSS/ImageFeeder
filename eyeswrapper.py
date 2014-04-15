@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""Wrapper for Applitools Eyes.
+"""
+
 from __future__ import print_function
 import logging
 import os
@@ -34,6 +37,7 @@ def match(eyes, path):
 
 
 def match_window(eyes, path):
+    # pylint: disable=protected-access
     """Sends an image to Applitools for matching.
 
     Args:
@@ -46,8 +50,8 @@ def match_window(eyes, path):
         eyes._match_window_task = _match_window_task.MatchWindowTask(
             eyes, eyes._agent_connector, eyes._running_session, None,
             eyes.match_timeout)
-    with open(path, 'rb') as f:
-        screenshot64 = f.read().encode('base64')
+    with open(path, 'rb') as image_file:
+        screenshot64 = image_file.read().encode('base64')
     data = {'appOutput': {'title': '', 'screenshot64': screenshot64},
             'userInputs': [],
             'tag': os.path.basename(path),
@@ -66,6 +70,8 @@ class EyesWrapper(object):
     Attributes:
         eyes: The wrapped Eyes instance.
     """
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, **kwargs):
         """Initializes the Eyes wrapper.
 
@@ -74,9 +80,10 @@ class EyesWrapper(object):
             overwrite_baseline: Whether to overwrite the baseline.
             test_name: The test name.
         """
-        self._batch_info = kwargs.pop('batch_info', None)
-        self._overwrite_baseline = kwargs.pop('overwrite_baseline', False)
         self._test_name = kwargs.pop('test_name', TEST_NAME)
+        self.eyes = applitools.eyes.Eyes()
+        self.eyes.batch = kwargs.pop('batch_info', None)
+        self.eyes.save_failed_tests = kwargs.pop('overwrite_baseline', False)
 
     def __enter__(self):
         """Opens an Eyes instance.
@@ -98,27 +105,31 @@ class EyesWrapper(object):
                     Applitools will try (and fail) to take screenshots
                     itself.
             """
+            # pylint: disable=too-many-public-methods
 
             def __init__(self):
                 """Initializes capabilities.
                 """
+                # pylint: disable=super-init-not-called
                 self._switch_to = None
                 self.capabilities = {'takesScreenshot': True}
 
-            def execute_script(self, script, params=None):
+            def execute_script(self, script, *args):
                 """Returns a fake viewport dimension.
 
                 The only scripts that must be mocked are those that get
                 the width and height of the viewport.
 
+                Args:
+                    script: A script to pretend to run.
+                    *args: Arguments to ignore.
+
                 Returns:
                     A valid viewport dimension.
                 """
+                # pylint: disable=unused-argument
                 return 0
 
-        self.eyes = applitools.eyes.Eyes()
-        self.eyes.batch = self._batch_info
-        self.eyes.save_failed_tests = self._overwrite_baseline
         self.eyes.open(_FakeWebDriver(), APP_NAME, self._test_name)
         return self
 
@@ -202,6 +213,8 @@ def _parse_args():
     return paths
 
 def main():
+    """Tests each directory given on the command line.
+    """
     paths = _parse_args()
     for path, overwrite in paths:
         test(path, overwrite)

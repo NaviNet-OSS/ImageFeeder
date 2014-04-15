@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""Watches directories and sends images to Eyes.
+"""
+
 import argparse
 import logging
 import os
@@ -57,6 +60,7 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             stop_event: An Event to set when it is time to stop
                 watching.
         """
+        # pylint: disable=super-init-not-called
         self._next_index = _ARRAY_BASE
         self._path_cache = _GrowingList()
         self._stop_event = stop_event
@@ -125,10 +129,10 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
         try:
             super(self.__class__, self).__exit__(exc_type, exc_value,
                                                  traceback)
-        except errors.NewTestError as e:
-            logging.info(e)
-        except errors.TestFailedError as e:
-            logging.info(e)
+        except errors.NewTestError as error:
+            logging.info(error)
+        except errors.TestFailedError as error:
+            logging.info(error)
             raise watchdir.DestinationDirectoryException(_FAILURE_DIR_NAME)
 
 
@@ -175,6 +179,11 @@ def _parse_args():
 
 
 def main():
+    """Watches directories and sends images to Eyes.
+
+    Use --help for full command line option documentation.
+    """
+    # pylint: disable=global-statement
     global _CONCURRENT_TEST_QUEUE
     global _DONE_BASE_NAME
     global _FAILURE_DIR_NAME

@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
+"""Watches directories.
+"""
+
 from distutils import dir_util
+import errno
 import logging
 import os
 import Queue
@@ -17,13 +21,38 @@ PROCESSING_DIR_NAME = 'IN-PROGRESS'
 DEFAULT_DIR_NAME = 'DONE'
 
 
+def _mv_f(src, dst):
+    """Moves a regular file.
+
+    Overwrites the destination if it exists but is not a directory.
+
+    Args:
+        src: The path of the source file.
+        dst: The path of the destination.
+    """
+    logging.debug('Moving {} to {}'.format(src, dst))
+    while os.path.exists(dst):
+        try:
+            os.remove(dst)
+        except OSError as error:
+            if error.errno != errno.ENOENT:
+                raise
+    while os.path.exists(dst):
+        time.sleep(0.1)  # Wait for the removal to complete
+    os.rename(src, dst)
+    while os.path.exists(src):
+        time.sleep(0.1)
+
+
 class CreationEventHandler(events.FileSystemEventHandler):
     """Event handler for moving new files.
     """
+    # pylint: disable=abstract-class-not-used
 
     def __init__(self, **kwargs):
         """Initializes the event handler.
         """
+        # pylint: disable=unused-argument
         self._backlog = Queue.Queue()
         thread = threading.Thread(target=self._process)
         thread.daemon = True
@@ -44,29 +73,8 @@ class CreationEventHandler(events.FileSystemEventHandler):
             head, tail = os.path.split(src_path)
             new_path = os.path.join(os.path.dirname(head),
                                     PROCESSING_DIR_NAME, tail)
-            self._mv_f(src_path, new_path)
+            _mv_f(src_path, new_path)
             self._backlog.put(new_path)
-
-    def _mv_f(self, src, dst):
-        """Moves a regular file.
-
-        Overwrites the destination if it exists but is not a directory.
-
-        Args:
-            src: The path of the source file.
-            dst: The path of the destination.
-        """
-        logging.debug('Moving {} to {}'.format(src, dst))
-        while os.path.exists(dst):
-            try:
-                os.remove(dst)
-            except:
-                pass
-        while os.path.exists(dst):
-            time.sleep(0.1)  # Wait for the removal to complete
-        os.rename(src, dst)
-        while os.path.exists(src):
-            time.sleep(0.1)
 
     def _process(self):
         """Process the backlog.
@@ -149,8 +157,8 @@ def _watch(path, context_manager, stop_event, **kwargs):
             stop_event.wait()
             observer.stop()
             observer.join()
-    except DestinationDirectoryException as e:
-        dst_dir = e.message
+    except DestinationDirectoryException as error:
+        dst_dir = error.message
     else:
         dst_dir = DEFAULT_DIR_NAME
     src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
