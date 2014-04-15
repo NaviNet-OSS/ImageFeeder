@@ -137,6 +137,33 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             raise watchdir.DestinationDirectoryException(_FAILURE_DIR_NAME)
 
 
+def _get_app_environment(path, sep):
+    """Get the host OS and browser.
+
+    Finds the nearest parent directory of the watched path with two or
+    more instances of sep and splits on it. The host OS and browser are
+    the last two fields but one.
+
+    Args:
+        path: The path in which to find the host information.
+        sep: The separator. If false, simply returns None for both.
+
+    Returns:
+        An iterable of two elements: the host OS and browser, which are
+        both strings or both None.
+    """
+    prev_path = None
+    sep = os.path.normcase(sep)
+    while path != prev_path and sep:
+        head, tail = os.path.split(path)
+        fields = tail.split(sep)
+        if len(fields) > 3:
+            return fields[-3:-1]
+        prev_path = path
+        path = head
+    return None, None
+
+
 def _parse_args():
     """Parse command line arguments.
 
@@ -152,6 +179,8 @@ def _parse_args():
                         '%(default)s)', metavar='N')
     parser.add_argument('--batch',
                         help='batch all directories together under BATCH')
+    parser.add_argument('--browser',
+                        help='set the host browser (overrides --sep)')
     parser.add_argument('--done', default=_DONE_BASE_NAME,
                         help='end a test when FILENAME is created (default: '
                         '%(default)s)', metavar='FILENAME')
@@ -164,9 +193,16 @@ def _parse_args():
     parser.add_argument('--log', default='WARNING', type=str.upper,
                         help='set the logging level (default: %(default)s)',
                         metavar='LEVEL')
+    parser.add_argument('--os', help='set the host OS (overrides --sep)')
     parser.add_argument('--passed', default=watchdir.DEFAULT_DIR_NAME,
                         help='put files into DIRNAME when an Eyes test '
                         'passes (default: %(default)s)', metavar='DIRNAME')
+    parser.add_argument('--sep', default='_',
+                        help='find the nearest parent directory to the '
+                        'watched path with two or more instances of PATTERN, '
+                        'split on it, and set the host OS and browser to the '
+                        'last two fields but one (default: %(default)s)',
+                        metavar='PATTERN')
     parser.add_argument('-t', '--tests', default=_MAX_CONCURRENT_TESTS,
                         type=int, help='run N tests concurrently (N <= 0 '
                         'means unlimited; default: %(default)d)',
@@ -231,8 +267,12 @@ def main():
     paths = set([os.path.normcase(os.path.realpath(path))
                  for path in args.paths])
     for path in paths:
+        host_os, host_app = _get_app_environment(path, args.sep)
         watchdir.watch(path, WindowMatchingEventHandler,
-                       batch_info=batch_info, test_name=args.test or path)
+                       batch_info=batch_info,
+                       host_app=args.browser or host_app,
+                       host_os=args.os or host_os,
+                       test_name=args.test or path)
     _LOGGER.info('Ready to start watching')
     try:
         while watchdir.is_running():

@@ -69,7 +69,6 @@ class EyesWrapper(object):
 
     Attributes:
         eyes: The wrapped Eyes instance.
-        _test_name: The name of the test.
     """
     # pylint: disable=too-few-public-methods
 
@@ -83,6 +82,8 @@ class EyesWrapper(object):
         self._test_name = kwargs.pop('test_name', TEST_NAME)
         self.eyes = applitools.eyes.Eyes()
         self.eyes.batch = kwargs.pop('batch_info', None)
+        self.eyes.host_app = kwargs.pop('host_app', None)
+        self.eyes.host_os = kwargs.pop('host_os', None)
         self.eyes.save_failed_tests = kwargs.pop('overwrite_baseline', False)
 
     def __enter__(self):
