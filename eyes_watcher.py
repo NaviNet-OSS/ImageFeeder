@@ -81,35 +81,45 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
             path = self._backlog.get()
             basename = os.path.basename(path)
             if basename == _DONE_BASE_NAME:
-                # Upload whatever files are left
-                for path in self._path_cache[self._next_index:]:
-                    if path:
-                        eyeswrapper.match(self.eyes, path)
-                # Stop watching the path
-                self._stop_event.set()
-                # Allow another path to be watched
-                _CONCURRENT_TEST_QUEUE.get()
-                _CONCURRENT_TEST_QUEUE.task_done()
+                self._stop()
                 break
             match = re.search(r'\d+', basename)
             if match:
+                # The file has an index and should be uploaded.
                 matched_index = int(match.group())
                 if matched_index < self._next_index:
                     logging.warn(
                         'Ignoring file with repeated index: {}'.format(path))
                 else:
                     self._path_cache[matched_index] = path
+                    # Upload as many files from the cache as possible
+                    # without skipping any indexes.
                     try:
                         while self._path_cache[self._next_index]:
                             eyeswrapper.match(
                                 self.eyes, self._path_cache[self._next_index])
                             self._next_index += 1
                     except IndexError:
+                        # We have run off the end of the cache. This is
+                        # expected when the cache has no holes in it.
                         pass
             else:
                 logging.warn('No index in file name: {}'.format(path))
             logging.debug('Wrong order cache: {}'.format(
                 self._path_cache[self._next_index + 1:]))
+
+    def _stop(self):
+        """Stops watching.
+        """
+        # Upload whatever files are left.
+        for path in self._path_cache[self._next_index:]:
+            if path:
+                eyeswrapper.match(self.eyes, path)
+        # Stop watching the path.
+        self._stop_event.set()
+        # Allow another path to be watched.
+        _CONCURRENT_TEST_QUEUE.get()
+        _CONCURRENT_TEST_QUEUE.task_done()
 
     def __exit__(self, exc_type, exc_value, traceback):
         try:
