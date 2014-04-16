@@ -171,47 +171,60 @@ def _parse_args():
         A Namespace containing the parsed arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--app', default=eyeswrapper.APP_NAME,
-                        help='run against the APP baseline (default: '
-                        '%(default)s)')
+    parser.add_argument('paths', nargs='*', default=[os.curdir],
+                        help='path to watch (default: current directory)',
+                        metavar='PATH')
+
+    baseline_group = parser.add_argument_group(
+        'Eyes session arguments',
+        'startInfo parameters for the new Eyes session')
+    baseline_group.add_argument(
+        '--batch', help='batch all directories together as BATCH')
+    baseline_group.add_argument(
+        '--app', default=eyeswrapper.APP_NAME,
+        help='run against the APP baseline (default: %(default)s)')
+    baseline_group.add_argument(
+        '--test', help='set the test name (default: the path to watch)')
+    baseline_group.add_argument(
+        '--sep', default='_',
+        help='find the nearest parent directory to the watched path with '
+        'three or more instances of PATTERN, split on it, and set the host '
+        'OS and browser to the last two fields but one (default: '
+        '%(default)s)', metavar='PATTERN')
+    baseline_group.add_argument('--browser',
+                                help='set the host browser (overrides --sep)')
+    baseline_group.add_argument('--os',
+                                help='set the host OS (overrides --sep)')
+
+    path_group = parser.add_argument_group(
+        'file and directory name arguments')
+    path_group.add_argument(
+        '--done', default=_DONE_BASE_NAME,
+        help='end a test when FILENAME is created (default: %(default)s)',
+        metavar='FILENAME')
+    path_group.add_argument('--failed', default=_FAILURE_DIR_NAME,
+                            help='put files into DIRNAME when an Eyes test '
+                            'fails (default: %(default)s)', metavar='DIRNAME')
+    path_group.add_argument(
+        '--in-progress', default=watchdir.PROCESSING_DIR_NAME,
+        help='put files into DIRNAME for processing (default: %(default)s)',
+        metavar='DIRNAME')
+    path_group.add_argument(
+        '--passed', default=watchdir.DEFAULT_DIR_NAME,
+        help='put files into DIRNAME when an Eyes test passes (default: '
+        '%(default)s)', metavar='DIRNAME')
+
     parser.add_argument('--array-base', default=_ARRAY_BASE, type=int,
                         help='start uploading images from index N (default: '
                         '%(default)s)', metavar='N')
-    parser.add_argument('--batch',
-                        help='batch all directories together under BATCH')
-    parser.add_argument('--browser',
-                        help='set the host browser (overrides --sep)')
-    parser.add_argument('--done', default=_DONE_BASE_NAME,
-                        help='end a test when FILENAME is created (default: '
-                        '%(default)s)', metavar='FILENAME')
-    parser.add_argument('--failed', default=_FAILURE_DIR_NAME,
-                        help='put files into DIRNAME when an Eyes test fails '
-                        '(default: %(default)s)', metavar='DIRNAME')
-    parser.add_argument('--in-progress', default=watchdir.PROCESSING_DIR_NAME,
-                        help='put files into DIRNAME for processing '
-                        '(default: %(default)s)', metavar='DIRNAME')
     parser.add_argument('--log', default='WARNING', type=str.upper,
                         help='set the logging level (default: %(default)s)',
                         metavar='LEVEL')
-    parser.add_argument('--os', help='set the host OS (overrides --sep)')
-    parser.add_argument('--passed', default=watchdir.DEFAULT_DIR_NAME,
-                        help='put files into DIRNAME when an Eyes test '
-                        'passes (default: %(default)s)', metavar='DIRNAME')
-    parser.add_argument('--sep', default='_',
-                        help='find the nearest parent directory to the '
-                        'watched path with two or more instances of PATTERN, '
-                        'split on it, and set the host OS and browser to the '
-                        'last two fields but one (default: %(default)s)',
-                        metavar='PATTERN')
     parser.add_argument('-t', '--tests', default=_MAX_CONCURRENT_TESTS,
                         type=int, help='run N tests concurrently (N <= 0 '
                         'means unlimited; default: %(default)d)',
                         metavar='N')
-    parser.add_argument('--test',
-                        help='set the test name (default: %(default)s)')
-    parser.add_argument('paths', nargs='*', default=[os.curdir],
-                        help='path to watch (default: current directory)',
-                        metavar='PATH')
+
     return parser.parse_args()
 
 
