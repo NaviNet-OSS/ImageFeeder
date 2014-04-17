@@ -153,7 +153,6 @@ def _get_app_environment(path, sep):
         both strings or both None.
     """
     prev_path = None
-    sep = os.path.normcase(sep)
     while path != prev_path and sep:
         head, tail = os.path.split(path)
         fields = tail.split(sep)
@@ -277,15 +276,19 @@ def main():
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
     # Watching
-    paths = set([os.path.normcase(os.path.realpath(path))
-                 for path in args.paths])
-    for path in paths:
+    watched_paths = []
+    for path in args.paths:
+        path = os.path.realpath(path)
+        normalized_path = os.path.normcase(path)
+        if normalized_path in watched_paths:
+            continue
+        watched_paths.append(normalized_path)
         host_os, host_app = _get_app_environment(path, args.sep)
-        watchdir.watch(path, WindowMatchingEventHandler,
+        watchdir.watch(normalized_path, WindowMatchingEventHandler,
                        batch_info=batch_info,
                        host_app=args.browser or host_app,
                        host_os=args.os or host_os,
-                       test_name=args.test or path)
+                       test_name=args.test or normalized_path)
     _LOGGER.info('Ready to start watching')
     try:
         while watchdir.is_running():
