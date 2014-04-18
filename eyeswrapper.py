@@ -19,6 +19,7 @@ applitools.eyes.Eyes.api_key = (
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 APP_NAME = 'app'
 TEST_NAME = 'test'
+LOGGER = logging.getLogger(__name__)
 
 
 def match(eyes, path):
@@ -33,7 +34,7 @@ def match(eyes, path):
     try:
         match_window(eyes, path)
     except exceptions.HTTPError:
-        logging.warn('Invalid image: {}'.format(path))
+        LOGGER.warn('Invalid image: {}'.format(path))
 
 
 def match_window(eyes, path):
@@ -44,7 +45,7 @@ def match_window(eyes, path):
         eyes: An open Eyes instance.
         path: The path of an image. The file name is used as the tag.
     """
-    logging.info('Matching file against baseline: {}'.format(path))
+    LOGGER.info('Matching file against baseline: {}'.format(path))
     if not eyes._running_session:
         eyes._start_session()
         eyes._match_window_task = _match_window_task.MatchWindowTask(
@@ -123,7 +124,7 @@ class EyesWrapper(object):
 
                 Args:
                     script: A script to pretend to run.
-                    *args: Arguments to ignore.
+                    args: Arguments to ignore.
 
                 Returns:
                     A valid viewport dimension.

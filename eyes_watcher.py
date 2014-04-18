@@ -13,6 +13,8 @@ import time
 
 from applitools import errors
 from applitools import eyes
+import glob
+from watchdog import events
 
 import eyeswrapper
 import watchdir
@@ -20,6 +22,7 @@ import watchdir
 _DONE_BASE_NAME = 'done'
 _FAILURE_DIR_NAME = 'FAILED'
 _ARRAY_BASE = 0
+_DEFAULT_SEP = '_'
 _LOGGER = logging.getLogger(__name__)
 
 # The Applitools Eyes Team License limits the number of concurrent
@@ -170,9 +173,10 @@ def _parse_args():
         A Namespace containing the parsed arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('paths', nargs='*', default=[os.curdir],
-                        help='path to watch (default: current directory)',
-                        metavar='PATH')
+    parser.add_argument(
+        'patterns', nargs='*', default=[os.curdir],
+        help='glob of paths to watch (default: current directory)',
+        metavar='GLOB')
 
     baseline_group = parser.add_argument_group(
         'Eyes session arguments',
@@ -185,7 +189,7 @@ def _parse_args():
     baseline_group.add_argument(
         '--test', help='set the test name (default: the path to watch)')
     baseline_group.add_argument(
-        '--sep', default='_',
+        '--sep', default=_DEFAULT_SEP,
         help='find the nearest parent directory to the watched path with '
         'three or more instances of PATTERN, split on it, and set the host '
         'OS and browser to the last two fields but one (default: '
@@ -227,6 +231,90 @@ def _parse_args():
     return parser.parse_args()
 
 
+def _literal_existing_part(pattern):
+    """Returns the literal existing part of a glob.
+
+    The literal existing part is as many consecutive directories of the
+    glob as possible which do not include any glob metacharacters ('*',
+    '?', and '['). For example, the literal existing part of '/x/y/*/z/?'
+    is '/x/y'.
+
+    Args:
+        pattern: a file glob
+
+    Returns:
+        the literal existing part of the glob
+    """
+    while True:
+        dirname = os.path.dirname(pattern)
+        if glob.has_magic(dirname) or not os.path.exists(dirname):
+            pattern = dirname
+        else:
+            return dirname
+
+
+class DirectoryGlobEventHandler(events.PatternMatchingEventHandler):
+    # TODO: change superclass
+    """Event handler for new directories matching a glob."""
+
+    def __init__(self, stop_event, **kwargs):
+        """"TODO:
+        """
+        self._batch_info = kwargs.pop('batch_info', None)
+        self._host_app = kwargs.pop('host_app', None)
+        self._host_os = kwargs.pop('host_os', None)
+        self._sep = kwargs.pop('sep', _DEFAULT_SEP)
+        self._watched = kwargs.pop('watched')
+        self._stop_event = stop_event
+        super(self.__class__, self).__init__(**kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def on_created(self, event):
+        src_path = event.src_path
+        normalized_path = os.path.normcase(os.path.normpath(src_path))
+        # Only process the new file if the normalized file name matches
+        # any glob.
+        # TODO: This might be redundant, but it is probably not wrong.
+        _LOGGER.debug('Normalized path: {}'.format(normalized_path))
+        match = False
+        for pattern in self.patterns:
+            _LOGGER.debug('Consider {}'.format(pattern))
+            for path in glob.glob(pattern):
+                _LOGGER.debug('Norm: {}'.format(
+                    os.path.normcase(os.path.normpath(path))))
+                if (os.path.normcase(os.path.normpath(path)) ==
+                    normalized_path):
+                    match = True
+                    break
+        if match:
+            _LOGGER.info('Created: {} (matching {})'.format(src_path,
+                                                            pattern))
+            if event.is_directory:
+                host_os, host_app = _get_app_environment(src_path, self._sep)
+                _LOGGER.debug('watchdir.watch(True, {}, '
+                              'WindowMatchingEventHandler, batch_info={}, '
+                              'host_app={} or {}, host_os={} or {}, '
+                              'test_name={})'.format(src_path,
+                                                     self._batch_info,
+                                                     self._host_app, host_app,
+                                                     self._host_os, host_os,
+                                                     src_path))
+                watchdir.watch(self._watched, src_path,
+                               WindowMatchingEventHandler,
+                               watched=self._watched,
+                               batch_info=self._batch_info,
+                               host_app=self._host_app or host_app,
+                               host_os=self._host_os or host_os,
+                               test_name=src_path)
+            else:
+                _LOGGER.warn('Not a directory: {}'.format(path))
+
+
 def main():
     """Watches directories and sends images to Eyes.
 
@@ -249,6 +337,8 @@ def main():
     _LOGGER.addHandler(handler)
     _LOGGER.propagate = False
     if _LOGGER.getEffectiveLevel() <= logging.DEBUG:
+        eyeswrapper.LOGGER = _LOGGER
+        watchdir.LOGGER = _LOGGER
         from applitools import logger
         eyes_logger = logger.StdoutLogger()
         # pylint: disable=protected-access
@@ -261,6 +351,7 @@ def main():
         requests_logger.propagate = False
 
     # Command line arguments
+    _LOGGER.debug('args: {}'.format(args))
     eyeswrapper.APP_NAME = args.app
     _ARRAY_BASE = args.array_base
     batch_info = None
@@ -277,18 +368,21 @@ def main():
 
     # Watching
     watched_paths = []
-    for path in args.paths:
-        path = os.path.realpath(path)
+    for pattern in args.patterns:
+        pattern = os.path.realpath(pattern)
+        path = _literal_existing_part(pattern)
+        _LOGGER.debug('{} -> {}'.format(pattern, path))
         normalized_path = os.path.normcase(path)
         if normalized_path in watched_paths:
+            _LOGGER.info('Skipping {}: same as {}'.format(path,
+                                                          normalized_path))
             continue
         watched_paths.append(normalized_path)
-        host_os, host_app = _get_app_environment(path, args.sep)
-        watchdir.watch(normalized_path, WindowMatchingEventHandler,
-                       batch_info=batch_info,
-                       host_app=args.browser or host_app,
-                       host_os=args.os or host_os,
-                       test_name=args.test or normalized_path)
+        _LOGGER.debug('Normalized path: {}'.format(normalized_path))
+        watchdir.watch(None, normalized_path,
+                       DirectoryGlobEventHandler, watched=normalized_path,
+                       patterns=[pattern], batch_info=batch_info,
+                       host_app=args.browser, host_os=args.os)
     _LOGGER.info('Ready to start watching')
     try:
         while watchdir.is_running():

@@ -19,6 +19,7 @@ _WATCHER_THREADS = []
 _STOP_EVENTS = []
 PROCESSING_DIR_NAME = 'IN-PROGRESS'
 DEFAULT_DIR_NAME = 'DONE'
+LOGGER = logging.getLogger(__name__)
 
 
 def _mv_f(src, dst):
@@ -30,7 +31,7 @@ def _mv_f(src, dst):
         src: The path of the source file.
         dst: The path of the destination.
     """
-    logging.debug('Moving {} to {}'.format(src, dst))
+    LOGGER.debug('Moving {} to {}'.format(src, dst))
     while os.path.exists(dst):
         try:
             os.remove(dst)
@@ -39,7 +40,12 @@ def _mv_f(src, dst):
                 raise
     while os.path.exists(dst):
         time.sleep(0.1)  # Wait for the removal to complete
-    os.rename(src, dst)
+    dir_util.mkpath(os.path.dirname(dst))
+    try:
+        os.rename(src, dst)
+    except OSError as error:
+        if error.errno != errno.ENOENT:
+            raise
     while os.path.exists(src):
         time.sleep(0.1)
 
@@ -49,10 +55,18 @@ class CreationEventHandler(events.FileSystemEventHandler):
     """
     # pylint: disable=abstract-class-not-used
 
-    def __init__(self, **kwargs):
+    def __init__(self, watched, **kwargs):
         """Initializes the event handler.
+
+        Args:
+            watched: The directory which is being watched.
         """
         # pylint: disable=unused-argument
+        self._watched = watched
+        self._processing_dir = os.path.join(os.path.dirname(watched),
+                                            PROCESSING_DIR_NAME,
+                                            os.path.basename(watched))
+        LOGGER.debug('Processing dir: {}'.format(self._processing_dir))
         self._backlog = Queue.Queue()
         thread = threading.Thread(target=self._process)
         thread.daemon = True
@@ -69,10 +83,9 @@ class CreationEventHandler(events.FileSystemEventHandler):
         """
         src_path = event.src_path
         if os.path.isfile(src_path):
-            logging.debug('Created file: {}'.format(src_path))
-            head, tail = os.path.split(src_path)
-            new_path = os.path.join(os.path.dirname(head),
-                                    PROCESSING_DIR_NAME, tail)
+            LOGGER.debug('Created file: {}'.format(src_path))
+            new_path = os.path.join(self._processing_dir,
+                                    os.path.relpath(src_path, self._watched))
             _mv_f(src_path, new_path)
             self._backlog.put(new_path)
 
@@ -94,65 +107,67 @@ def _make_empty_directory(path):
     """Clears a directory or deletes a regular file.
 
     Deletes whatever the path refers to (if anything) and creates an
-    empty directory at that path. The parent of the directory to be
-    created must already exist.
+    empty directory at that path.
 
     Args:
         path: The path to make point to an empty directory.
     """
-    logging.debug('Clearing directory: {}'.format(path))
+    LOGGER.debug('Clearing directory: {}'.format(path))
     if os.path.isdir(path):
         shutil.rmtree(path)
     elif os.path.exists(path):
         os.remove(path)
-    os.mkdir(path)
+    dir_util.mkpath(path)
 
 
-def watch(path, context_manager, **kwargs):
-    """Watches a directory for files to send in another thread.
-
-    The event handler's initializer must be able to take exactly one
-    argument, an Event to set to stop watching.
+def watch(base, path, context_manager, **kwargs):
+    """Watches a directory in another thread.
 
     Args:
+        base: The parent directory of the directories to move files
+            into, or a false value to not move anything.
         path: The name of the directory to watch, without a trailing
             directory separator.
-        context_manager: A context manager which produces an event
-            handler.
-        **kwargs: Keyword arguments for context_manager.
+        context_manager: A context manager which takes an Event and
+            some keyword arguments and produces an event handler.
+        kwargs: Keyword arguments for context_manager.
     """
     # If path has a trailing directory separator, dirname won't work
-    parent = os.path.dirname(path)
-    _make_empty_directory(os.path.join(parent, PROCESSING_DIR_NAME))
     stop_event = threading.Event()
     _STOP_EVENTS.append(stop_event)
     thread = threading.Thread(target=_watch,
-                              args=(path, context_manager, stop_event),
+                              args=(base, path, context_manager, stop_event),
                               kwargs=kwargs)
     thread.start()
     _WATCHER_THREADS.append(thread)
 
 
-def _watch(path, context_manager, stop_event, **kwargs):
-    """Watches a directory for files to send.
+def _watch(base, path, context_manager, stop_event, **kwargs):
+    """Watches a directory.
 
-    Moves files on completion of a test. If the test (including
-    entering and exiting the context manager) raises an exception, the
-    new directory is FAILED. Otherwise, it is DONE.
+    Moves files on completion of a test if base is true. If the test
+    (including entering and exiting the context manager) raises a
+    DestinationDirectoryException, the new directory is the error
+    message. Otherwise, it is DONE.
 
     Args:
+        base: The parent directory of the directories to move files
+            into, or a false value to not move anything.
         path: The name of the directory to watch.
-        context_manager: A context manager which produces an event
-            handler.
+        context_manager: A context manager which takes an Event and
+            some keyword arguments and produces an event handler.
         stop_event: An Event to set to stop watching. It is passed as
             the first argument to the event handler's initializer.
-        **kwargs: Keyword arguments for context_manager.
+        kwargs: Keyword arguments for context_manager.
     """
-    logging.info('Watching directory: {}'.format(path))
+    LOGGER.info('Watching directory: {}'.format(path))
+    if base:  # TODO: base and watched are redundant
+        src = os.path.join(os.path.dirname(base), PROCESSING_DIR_NAME)
+        _make_empty_directory(src)
     try:
         with context_manager(stop_event, **kwargs) as event_handler:
             observer = polling.PollingObserver()
-            observer.schedule(event_handler, path)
+            observer.schedule(event_handler, path, True)
             observer.start()
             stop_event.wait()
             observer.stop()
@@ -161,16 +176,15 @@ def _watch(path, context_manager, stop_event, **kwargs):
         dst_dir = error.message
     else:
         dst_dir = DEFAULT_DIR_NAME
-    src = os.path.join(os.path.dirname(path), PROCESSING_DIR_NAME)
-    dst = os.path.join(os.path.dirname(path), dst_dir)
-    logging.debug('Moving {} to {}'.format(src, dst))
-    if os.path.exists(dst):
-        dir_util.remove_tree(dst)
-    dir_util.copy_tree(src, dst)
-    for base_name in os.listdir(src):
-        path = os.path.join(src, base_name)
-        if os.path.isfile(path):
-            os.remove(path)
+    if base:
+        dst = os.path.join(os.path.dirname(base), dst_dir)
+        _make_empty_directory(dst)
+        LOGGER.debug('Moving {} to {}'.format(src, dst))
+        if os.path.isdir(dst):
+            shutil.rmtree(dst)
+        elif os.path.exists(dst):
+            os.remove(dst)
+        os.rename(src, dst)
 
 
 def stop_watching():
