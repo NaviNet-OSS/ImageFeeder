@@ -78,7 +78,10 @@ class EyesWrapper(object):
 
         Args:
             batch_info: A BatchInfo or None.
+            host_app: A browser name or None.
+            host_os: An OS name or None.
             overwrite_baseline: Whether to overwrite the baseline.
+            test_name: The name of the Eyes test.
         """
         self._test_name = kwargs.pop('test_name', TEST_NAME)
         self.eyes = applitools.eyes.Eyes()
