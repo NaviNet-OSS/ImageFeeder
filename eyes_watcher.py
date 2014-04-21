@@ -82,6 +82,11 @@ class DirectoryGlobEventHandler(events.FileSystemEventHandler):
             os.path.join(os.path.dirname(self._base_path),
                          watchdir.PROCESSING_DIR_NAME))
         super(self.__class__, self).__init__(**kwargs)
+        if (self._base_path == self._patterns[0] and
+            os.path.isdir(self._base_path)):
+            # Watch a non-glob immediately.
+            self._watch(self._base_path)
+            stop_event.set()
 
     def __enter__(self):
         return self
@@ -90,21 +95,36 @@ class DirectoryGlobEventHandler(events.FileSystemEventHandler):
         pass
 
     def on_created(self, event):
+        """Handles the creation of a new file.
+
+        If the new file is a directory and it matches one of the event
+        handler's globs, it watches it for new images to send to Eyes.
+
+        Args:
+            event: The Event representing the creation of a new file.
+        """
         src_path = event.src_path
         matched_pattern = _matches_any_pattern(src_path, self._patterns)
         if matched_pattern:
             _LOGGER.info('Created: {} (matching {})'.format(src_path,
                                                             matched_pattern))
             if event.is_directory:
-                host_os, host_app = _get_app_environment(src_path, self._sep)
-                watchdir.watch(src_path, WindowMatchingEventHandler,
-                               base_path=self._base_path,
-                               batch_info=self._batch_info,
-                               host_app=self._host_app or host_app,
-                               host_os=self._host_os or host_os,
-                               watched_path=src_path, test_name=src_path)
+                self._watch(src_path)
             else:
                 _LOGGER.warn('Not a directory: {}'.format(src_path))
+
+    def _watch(self, src_path):
+        """Watches a directory to send new images to Eyes.
+
+        Args:
+            src_path: The path to watch.
+        """
+        host_os, host_app = _get_app_environment(src_path, self._sep)
+        watchdir.watch(src_path, WindowMatchingEventHandler,
+                       base_path=self._base_path, batch_info=self._batch_info,
+                       host_app=self._host_app or host_app,
+                       host_os=self._host_os or host_os,
+                       watched_path=src_path, test_name=src_path)
 
 
 class _GrowingList(list):
@@ -204,6 +224,16 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
         _CONCURRENT_TEST_QUEUE.task_done()
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """Ends the Eyes test and moves files.
+
+        Moves files on completion of a test. The destination directory
+        depends on whether the Eyes test succeeded or failed.
+
+        Args:
+            exc_type: The type of the raised exception.
+            exc_value: The raised exception.
+            traceback: The traceback.
+        """
         try:
             super(self.__class__, self).__exit__(exc_type, exc_value,
                                                  traceback)
@@ -338,6 +368,7 @@ def _literal_existing_part(pattern):
     Returns:
         The literal existing part of the glob.
     """
+    pattern += os.sep
     while True:
         dirname = os.path.dirname(pattern)
         if glob.has_magic(dirname) or not os.path.exists(dirname):
@@ -437,7 +468,8 @@ def main():
             continue
         watched_paths.append(normalized_path)
         watchdir.watch(normalized_path, DirectoryGlobEventHandler,
-                       base_path=normalized_path, patterns=[pattern],
+                       base_path=normalized_path,
+                       patterns=[os.path.normcase(pattern)],
                        batch_info=batch_info, host_app=args.browser,
                        host_os=args.os)
     _LOGGER.info('Ready to start watching')

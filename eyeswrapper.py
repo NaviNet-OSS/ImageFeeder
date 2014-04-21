@@ -142,7 +142,7 @@ class EyesWrapper(object):
         """Closes the wrapped Eyes instance.
 
         Args:
-            exc_type: Type of the raised exception.
+            exc_type: The type of the raised exception.
             exc_value: The raised exception.
             traceback: The traceback.
         """

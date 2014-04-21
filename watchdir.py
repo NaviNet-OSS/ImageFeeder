@@ -39,12 +39,12 @@ def _mv_f(src, dst):
     while os.path.exists(dst):
         time.sleep(0.1)  # Wait for the removal to complete
     dir_util.mkpath(os.path.dirname(dst))
-    try:
-        os.rename(src, dst)
-    except OSError as error:
-        if error.errno != errno.ENOENT:
-            raise
     while os.path.exists(src):
+        try:
+            os.rename(src, dst)
+        except OSError as error:
+            if error.errno not in [errno.ENOENT, errno.EACCES]:
+                raise
         time.sleep(0.1)
 
 
@@ -128,11 +128,6 @@ def watch(path, context_manager, **kwargs):
 
 def _watch(path, context_manager, stop_event, **kwargs):
     """Watches a directory.
-
-    Moves files on completion of a test if base is true. If the test
-    (including entering and exiting the context manager) raises a
-    DestinationDirectoryException, the new directory is the error
-    message. Otherwise, it is DONE. # TODO: update
 
     Args:
         path: The name of the directory to watch.
