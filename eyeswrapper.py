@@ -15,8 +15,6 @@ from requests import exceptions
 from selenium.webdriver.remote import webdriver
 
 
-applitools.eyes.Eyes.api_key = (
-    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 APP_NAME = 'app'
 _DEFAULT_TEST_NAME = 'test'
 TEST_NAME = None

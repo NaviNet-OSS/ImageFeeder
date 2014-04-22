@@ -340,6 +340,8 @@ def _parse_args():
         help='put files into DIRNAME when an Eyes test passes (default: '
         '%(default)s)', metavar='DIRNAME')
 
+    parser.add_argument('-a', '--api-key', required=True,
+                        help='set the Applitools Eyes API key')
     parser.add_argument('--array-base', default=_ARRAY_BASE, type=int,
                         help='start uploading images from index N (default: '
                         '%(default)s)', metavar='N')
@@ -443,17 +445,18 @@ def main():
     _LOGGER.debug('Args: {}'.format(args))
 
     # Command line arguments
-    eyeswrapper.APP_NAME = args.app
-    _ARRAY_BASE = args.array_base
     batch_info = None
     if args.batch:
         batch_info = eyes.BatchInfo(args.batch)
+    eyeswrapper.APP_NAME = args.app
+    if args.test:
+        eyeswrapper.TEST_NAME = args.test
     _DONE_BASE_NAME = args.done
     _FAILURE_DIR_NAME = args.failed
     watchdir.PROCESSING_DIR_NAME = args.in_progress
     _SUCCESS_DIR_NAME = args.passed
-    if args.test:
-        eyeswrapper.TEST_NAME = args.test
+    eyes.Eyes.api_key = args.api_key
+    _ARRAY_BASE = args.array_base
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
@@ -464,7 +467,7 @@ def main():
         path = _literal_existing_part(pattern)
         normalized_path = os.path.normcase(path)
         if normalized_path in watched_paths:
-            _LOGGER.info('Skipping {}: same as {}'.format(path,
+            _LOGGER.info('Skipping {}: same as {}'.format(pattern,
                                                           normalized_path))
             continue
         watched_paths.append(normalized_path)
@@ -472,7 +475,7 @@ def main():
                        base_path=normalized_path,
                        patterns=[os.path.normcase(pattern)],
                        batch_info=batch_info, host_app=args.browser,
-                       host_os=args.os)
+                       host_os=args.os, sep=args.sep)
     _LOGGER.info('Ready to start watching')
     try:
         while watchdir.is_running():
