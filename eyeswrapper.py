@@ -119,6 +119,24 @@ class EyesWrapper(object):
                 self._switch_to = None
                 self.capabilities = {'takesScreenshot': True}
 
+            def execute(self, driver_command, params=None):
+                """Returns fake window dimensions.
+
+                The only command that must be mocked is that which gets
+                the width and height of the window.
+
+                Args:
+                    driver_command: A command to pretend to execute.
+                    params: Parameters to ignore.
+
+                Returns:
+                    A dictionary with a 'value' key whose value is a
+                    dictionary with two keys, 'height' and 'width',
+                    both of which are valid window dimensions.
+                """
+                # pylint: disable=unused-argument
+                return {'value': {'height': 0, 'width': 0}}
+
             def execute_script(self, script, *args):
                 """Returns a fake viewport dimension.
 
