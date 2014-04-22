@@ -440,6 +440,7 @@ def main():
 
     # Logging
     _set_up_logging(args.log)
+    _LOGGER.debug('Args: {}'.format(args))
 
     # Command line arguments
     eyeswrapper.APP_NAME = args.app

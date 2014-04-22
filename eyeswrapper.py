@@ -18,7 +18,8 @@ from selenium.webdriver.remote import webdriver
 applitools.eyes.Eyes.api_key = (
     'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 APP_NAME = 'app'
-TEST_NAME = 'test'
+_DEFAULT_TEST_NAME = 'test'
+TEST_NAME = None
 LOGGER = logging.getLogger(__name__)
 
 
@@ -83,7 +84,8 @@ class EyesWrapper(object):
             overwrite_baseline: Whether to overwrite the baseline.
             test_name: The name of the Eyes test.
         """
-        self._test_name = kwargs.pop('test_name', TEST_NAME)
+        self._test_name = TEST_NAME or kwargs.pop('test_name',
+                                                  _DEFAULT_TEST_NAME)
         self.eyes = applitools.eyes.Eyes()
         self.eyes.batch = kwargs.pop('batch_info', None)
         self.eyes.host_app = kwargs.pop('host_app', None)
