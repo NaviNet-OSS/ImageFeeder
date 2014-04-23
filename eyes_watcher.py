@@ -78,9 +78,11 @@ class DirectoryGlobEventHandler(events.FileSystemEventHandler):
         self._sep = kwargs.pop('sep', _DEFAULT_SEP)
         self._base_path = kwargs.pop('base_path')
         self._stop_event = stop_event
-        _make_empty_directory(
-            os.path.join(os.path.dirname(self._base_path),
-                         watchdir.PROCESSING_DIR_NAME))
+        processing_dir = os.path.join(os.path.dirname(self._base_path),
+                                      watchdir.PROCESSING_DIR_NAME)
+        if os.path.isfile(processing_dir):
+            os.remove(processing_dir)
+        _LOGGER.info('Processing directory: {}'.format(processing_dir))
         super(self.__class__, self).__init__(**kwargs)
         if (self._base_path == self._patterns[0] and
             os.path.isdir(self._base_path)):
