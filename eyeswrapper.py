@@ -68,6 +68,8 @@ class EyesWrapper(object):
     tear-down processes.
 
     Attributes:
+        driver: The web driver as updated by Eyes, or None if Eyes has
+            not been opened yet.
         eyes: The wrapped Eyes instance.
     """
     # pylint: disable=too-few-public-methods
@@ -84,6 +86,7 @@ class EyesWrapper(object):
         """
         self._test_name = TEST_NAME or kwargs.pop('test_name',
                                                   _DEFAULT_TEST_NAME)
+        self.driver = None
         self.eyes = applitools.eyes.Eyes()
         self.eyes.batch = kwargs.pop('batch_info', None)
         self.eyes.host_app = kwargs.pop('host_app', None)
@@ -153,7 +156,8 @@ class EyesWrapper(object):
                 # pylint: disable=unused-argument
                 return 0
 
-        self.eyes.open(_FakeWebDriver(), APP_NAME, self._test_name)
+        self.driver = self.eyes.open(_FakeWebDriver(), APP_NAME,
+                                     self._test_name)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

@@ -13,6 +13,7 @@ import time
 
 from watchdog import events
 from watchdog.observers import polling
+from watchdog.utils import dirsnapshot
 
 _WATCHER_THREADS = []
 _STOP_EVENTS = []
@@ -70,6 +71,9 @@ class CreationEventHandler(events.FileSystemEventHandler):
         self._watched_path_copy = os.path.join(
             self._base_path_copy, os.path.relpath(watched_path, base_path))
         self._backlog = Queue.Queue()
+        initial_snapshot = dirsnapshot.DirectorySnapshot(watched_path, False)
+        for path in initial_snapshot.paths:
+            self._queue_file(path)
         thread = threading.Thread(target=self._process)
         thread.daemon = True
         thread.start()
@@ -83,7 +87,17 @@ class CreationEventHandler(events.FileSystemEventHandler):
         Args:
             event: The file system event.
         """
-        src_path = event.src_path
+        self._queue_file(event.src_path)
+
+    def _queue_file(self, src_path):
+        """Queues a file for processing.
+
+        Does not queue directories. Moves files to a processing
+        directory.
+
+        Args:
+            src_path: The path of the file to queue.
+        """
         if os.path.isfile(src_path):
             LOGGER.debug('Created file: {}'.format(src_path))
             new_path = os.path.join(self._watched_path_copy,

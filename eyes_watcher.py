@@ -148,8 +148,8 @@ class _GrowingList(list):
         super(self.__class__, self).__setitem__(index, value)
 
 
-class WindowMatchingEventHandler(watchdir.CreationEventHandler,
-                                 eyeswrapper.EyesWrapper):
+class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
+                                 watchdir.CreationEventHandler):
     """Event handler for moving new files and uploading them to Eyes.
     """
 
@@ -180,6 +180,9 @@ class WindowMatchingEventHandler(watchdir.CreationEventHandler,
 
         Ignores files without indexes.
         """
+        while not self.driver:
+            # Wait for Eyes to have opened.
+            time.sleep(0.1)
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
             path = self._backlog.get()
