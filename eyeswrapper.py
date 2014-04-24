@@ -94,7 +94,7 @@ class EyesWrapper(object):
         self.eyes.save_failed_tests = kwargs.pop('overwrite_baseline', False)
 
     def __enter__(self):
-        """Opens an Eyes instance.
+        """Opens an Eyes instance with the "Layout" match level.
 
         Returns:
             The EyesWrapper.
@@ -156,8 +156,9 @@ class EyesWrapper(object):
                 # pylint: disable=unused-argument
                 return 0
 
-        self.driver = self.eyes.open(_FakeWebDriver(), APP_NAME,
-                                     self._test_name)
+        self.driver = self.eyes.open(
+            _FakeWebDriver(), APP_NAME, self._test_name,
+            match_level=applitools.eyes.MatchLevel.LAYOUT)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
