@@ -7,7 +7,7 @@
 
 Download and install the following, and all their prerequisites:
 
-* [`eyes-selenium==1.18`](https://pypi.python.org/pypi/eyes-selenium/1.18)
+* [`eyes-selenium==1.28`](https://pypi.python.org/pypi/eyes-selenium/1.28)
 * [`watchdog`](https://pypi.python.org/pypi/watchdog)
 
 pip makes this simple.
