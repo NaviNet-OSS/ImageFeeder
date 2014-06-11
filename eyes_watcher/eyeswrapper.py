@@ -106,7 +106,8 @@ class EyesWrapper(object):
             a web driver to trick it into working.
 
             Attributes:
-                _switch_to: Anything. It must exist, though.
+                _mobile: Anything. It must exist, though.
+                _switch_to: Anything.
                 capabilities: A dictionary of capability names to
                     booleans. The only one that matters is
                     'takesScreenshot', which must be True, or else
@@ -119,6 +120,7 @@ class EyesWrapper(object):
                 """Initializes capabilities.
                 """
                 # pylint: disable=super-init-not-called
+                self._mobile = None
                 self._switch_to = None
                 self.capabilities = {'takesScreenshot': True}
 
