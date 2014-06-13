@@ -48,16 +48,11 @@ def match_window(eyes, path):
     if not eyes._running_session:
         eyes._start_session()
         eyes._match_window_task = _match_window_task.MatchWindowTask(
-            eyes, eyes._agent_connector, eyes._running_session, None,
+            eyes, eyes._agent_connector, eyes._running_session, eyes._driver,
             eyes.match_timeout)
     with open(path, 'rb') as image_file:
-        screenshot64 = image_file.read().encode('base64')
-    data = {'appOutput': {'title': '', 'screenshot64': screenshot64},
-            'userInputs': [],
-            'tag': os.path.basename(path),
-            'ignoreMismatch': False}
-    eyes._match_window_task._agent_connector.match_window(
-        eyes._match_window_task._running_session, data)
+        eyes._driver.driver.screenshot64 = image_file.read().encode('base64')
+    eyes._match_window_task.match_window(os.path.basename(path), False, [])
 
 
 class EyesWrapper(object):
@@ -113,16 +108,22 @@ class EyesWrapper(object):
                     'takesScreenshot', which must be True, or else
                     Applitools will try (and fail) to take screenshots
                     itself.
+                screenshot64: The base64-encoded screenshot to return
+                    next.
             """
             # pylint: disable=too-many-public-methods
 
             def __init__(self):
-                """Initializes capabilities.
+                """Initializes the fake web driver.
+
+                screenshot64 is not initialized to a valid base64-
+                encoded image.
                 """
                 # pylint: disable=super-init-not-called
                 self._mobile = None
                 self._switch_to = None
                 self.capabilities = {'takesScreenshot': True}
+                self.screenshot64 = None
 
             def execute(self, driver_command, params=None):
                 """Returns fake window dimensions.
@@ -157,6 +158,14 @@ class EyesWrapper(object):
                 """
                 # pylint: disable=unused-argument
                 return 0
+
+            def get_screenshot_as_base64(self):
+                """Gets a screenshot in base64.
+
+                Returns:
+                    A screenshot in base64.
+                """
+                return self.screenshot64
 
         self.driver = self.eyes.open(
             _FakeWebDriver(), APP_NAME, self._test_name,
