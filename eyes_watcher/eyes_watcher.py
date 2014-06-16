@@ -421,9 +421,6 @@ def _set_up_logging(level):
         watchdir.LOGGER = _LOGGER
         from applitools import logger
         eyes_logger = logger.StdoutLogger()
-        # pylint: disable=protected-access
-        eyes_logger._logger.propagate = False
-        # pylint: enable=protected-access
         logger.set_logger(eyes_logger)
         requests_logger = logging.getLogger('requests.packages.urllib3')
         requests_logger.addHandler(handler)
