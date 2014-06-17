@@ -52,7 +52,7 @@ def _mv_f(src, dst):
 class CreationEventHandler(events.FileSystemEventHandler):
     """Event handler for moving new files.
     """
-    # pylint: disable=abstract-class-not-used
+    # pylint: disable=abstract-class-little-used
 
     def __init__(self, watched_path, **kwargs):
         """Initializes the event handler.

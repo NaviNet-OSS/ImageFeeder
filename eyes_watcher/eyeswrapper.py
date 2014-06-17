@@ -52,7 +52,8 @@ def match_window(eyes, path):
             eyes.match_timeout)
     with open(path, 'rb') as image_file:
         eyes._driver.driver.screenshot64 = image_file.read().encode('base64')
-    eyes._match_window_task.match_window(os.path.basename(path), False, [])
+    eyes._match_window_task.match_window(
+        -1, os.path.basename(path), False, [])
 
 
 class EyesWrapper(object):
