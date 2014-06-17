@@ -35,11 +35,11 @@ test5 'Logs\ABC\*\*\\assets\screenshots' 'Logs\DEF\*\*\\assets\screenshots'
 
 ### Synopsis
 
-<code>**eyes\_watcher.py** [**-h**] **-a** _API-key_ [**--array-base**
-_number_] [**--log** _level_] [**-t** _number_] [**--batch** _batch_]
-[**--app** _app_] [**--test** _test_] [**--sep** _pattern_] [**--browser**
-_browser_] [**--os** _OS_] [**--done** _filename_] [**--failed** _directory_]
-[**--in-progress** _directory_] [**--passed** _directory_] [_glob_ ...]</code>
+<code>**eyes\_watcher.py** [**-h**] **-a** _API-key_ [**-i** _number_]
+[**--log** _level_] [**-t** _number_] [**--batch** _batch_] [**--app** _app_]
+[**--test** _test_] [**--sep** _pattern_] [**--browser** _browser_] [**--os**
+_OS_] [**--done** _filename_] [**--failed** _directory_] [**--in-progress**
+_directory_] [**--passed** _directory_] [_glob_ ...]</code>
 
 
 ### Requirements
@@ -98,9 +98,11 @@ images did not match the baseline. Success means the images matched the
 baseline, or there was no baseline.
 
 Images are only uploaded in index order starting from 0, where the index of
-`0000screenshot.png` is 0. For example, if an image appears with index 5, it
-will only be uploaded _after_ images 0 through 4. If another image 5 appears
-later, it is ignored.
+a file is the first nonnegative decimal integer appearing in its name; for
+example, the index of `0123screenshot.png` is 123. If an image appears with
+index 5, it will only be uploaded _after_ images 0 through 4. If another image
+5 appears later, it is ignored. Indexing can be disabled by giving `--index` an
+invalid index; for example, `--index -`.
 
 Our Applitools Eyes license only allows us to run 6 tests concurrently. (This
 is not enforced, but it might be one day. For now, this limit can be overridden
@@ -120,8 +122,9 @@ created.
   * Display help and exit.
 * **-a**, **--api-key**
   * Set the Eyes API key. This is required.
-* **--array-base**
-  * Start uploading images from the given index. The default is `0`.
+* **-i**, **--index**, **--array-base**
+  * Start uploading images from the given index. The default is `0`. If it is
+    not set to a nonnegative integer, indexing is disabled.
 * **--log**=_level_
   * Log progress. Legal values are `CRITICAL`, `ERROR`, `WARNING`, `INFO`, and
    `DEBUG`. The default is `WARNING`.

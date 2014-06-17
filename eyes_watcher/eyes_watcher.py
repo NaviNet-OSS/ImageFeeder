@@ -24,7 +24,7 @@ import watchdir
 _DONE_BASE_NAME = 'done'
 _FAILURE_DIR_NAME = 'FAILED'
 _SUCCESS_DIR_NAME = 'DONE'
-_ARRAY_BASE = 0
+_INDEX = 0  # A nonnegative integer, or None to disable indexing
 _DEFAULT_SEP = '_'
 _LOGGER = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
                 watching.
         """
         # pylint: disable=super-init-not-called
-        self._next_index = _ARRAY_BASE
+        self._next_index = _INDEX or 0
         self._path_cache = _GrowingList()
         self._stop_event = stop_event
         for base in self.__class__.__bases__:
@@ -190,10 +190,14 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
             if basename == _DONE_BASE_NAME:
                 self._stop()
                 break
-            match = re.search(r'\d+', basename)
+            match = _INDEX is None or re.search(r'\d+', basename)
             if match:
-                # The file has an index and should be uploaded.
-                matched_index = int(match.group())
+                # The file has an index and should be uploaded, or
+                # indexing has been disabled.
+                if _INDEX is None:
+                    matched_index = self._next_index
+                else:
+                    matched_index = int(match.group())
                 if matched_index < self._next_index:
                     _LOGGER.warn(
                         'Ignoring file with repeated index: {}'.format(path))
@@ -212,8 +216,8 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
                         pass
             else:
                 _LOGGER.warn('No index in file name: {}'.format(path))
-            _LOGGER.debug('Wrong order cache: {}'.format(
-                self._path_cache[self._next_index + 1:]))
+            _LOGGER.debug('File cache from index {}: {}'.format(
+                self._next_index + 1, self._path_cache[self._next_index + 1:]))
 
     def _stop(self):
         """Stops watching.
@@ -347,9 +351,10 @@ def _parse_args():
 
     parser.add_argument('-a', '--api-key', required=True,
                         help='set the Applitools Eyes API key')
-    parser.add_argument('--array-base', default=_ARRAY_BASE, type=int,
-                        help='start uploading images from index N (default: '
-                        '%(default)s)', metavar='N')
+    parser.add_argument('-i', '--index', '--array-base', default=_INDEX,
+                        help='start uploading images from index N if N is a '
+                        'nonnegative integer, or disable indexing otherwise '
+                        '(default: %(default)s)', metavar='N')
     parser.add_argument('--log', default='WARNING', type=str.upper,
                         help='set the logging level (default: %(default)s)',
                         metavar='LEVEL')
@@ -434,10 +439,10 @@ def main():
     Use --help for full command line option documentation.
     """
     # pylint: disable=global-statement
-    global _ARRAY_BASE
     global _CONCURRENT_TEST_QUEUE
     global _DONE_BASE_NAME
     global _FAILURE_DIR_NAME
+    global _INDEX
     global _MAX_CONCURRENT_TESTS
     global _SUCCESS_DIR_NAME
     args = _parse_args()
@@ -458,7 +463,14 @@ def main():
     watchdir.PROCESSING_DIR_NAME = args.in_progress
     _SUCCESS_DIR_NAME = args.passed
     eyes.Eyes.api_key = args.api_key
-    _ARRAY_BASE = args.array_base
+    try:
+        _INDEX = int(args.index)
+        if _INDEX < 0:
+            _LOGGER.warn(
+                'Invalid index {}; indexing will be disabled'.format(_INDEX))
+            _INDEX = None
+    except ValueError:
+        _INDEX = None
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
 
