@@ -24,7 +24,7 @@ import watchdir
 _DONE_BASE_NAME = 'done'
 _FAILURE_DIR_NAME = 'FAILED'
 _SUCCESS_DIR_NAME = 'DONE'
-_INDEX = 0  # A nonnegative integer, or None to disable indexing
+_INDEX = None  # A nonnegative integer, or None to disable indexing
 _DEFAULT_SEP = '_'
 _LOGGER = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
                         pass
             else:
                 _LOGGER.warn('No index in file name: {}'.format(path))
-            _LOGGER.debug('File cache from index {}: {}'.format(
+            _LOGGER.debug('File cache, starting at index {}: {}'.format(
                 self._next_index + 1, self._path_cache[self._next_index + 1:]))
 
     def _stop(self):
@@ -352,9 +352,8 @@ def _parse_args():
     parser.add_argument('-a', '--api-key', required=True,
                         help='set the Applitools Eyes API key')
     parser.add_argument('-i', '--index', '--array-base', default=_INDEX,
-                        help='start uploading images from index N if N is a '
-                        'nonnegative integer, or disable indexing otherwise '
-                        '(default: %(default)s)', metavar='N')
+                        type=int, help='start uploading images from index N '
+                        '(by default, indexing is disabled)', metavar='N')
     parser.add_argument('--log', default='WARNING', type=str.upper,
                         help='set the logging level (default: %(default)s)',
                         metavar='LEVEL')
@@ -463,13 +462,10 @@ def main():
     watchdir.PROCESSING_DIR_NAME = args.in_progress
     _SUCCESS_DIR_NAME = args.passed
     eyes.Eyes.api_key = args.api_key
-    try:
-        _INDEX = int(args.index)
-        if _INDEX < 0:
-            _LOGGER.warn(
-                'Invalid index {}; indexing will be disabled'.format(_INDEX))
-            _INDEX = None
-    except ValueError:
+    _INDEX = args.index
+    if _INDEX < 0:
+        _LOGGER.warn(
+            'Invalid index {}; indexing will be disabled'.format(_INDEX))
         _INDEX = None
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)

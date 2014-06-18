@@ -97,12 +97,14 @@ stop watching the directory. When it stops watching, it moves all files from
 images did not match the baseline. Success means the images matched the
 baseline, or there was no baseline.
 
-Images are only uploaded in index order starting from 0, where the index of
-a file is the first nonnegative decimal integer appearing in its name; for
-example, the index of `0123screenshot.png` is 123. If an image appears with
-index 5, it will only be uploaded _after_ images 0 through 4. If another image
-5 appears later, it is ignored. Indexing can be disabled by giving `--index` an
-invalid index; for example, `--index -`.
+By default, images are uploaded in the order they appear in the directory. To
+avoid race conditions, you can turn on indexing using, for example, `--index
+0`. When using indexing, images are only uploaded in index order starting from
+the specified number, where the index of a file is the first nonnegative
+decimal integer appearing in its name; for example, the index of
+`0123screenshot.png` is 123. If an image appears with index 5, it will only be
+uploaded _after_ images 0 through 4. If another image 5 appears later, it is
+ignored.
 
 Our Applitools Eyes license only allows us to run 6 tests concurrently. (This
 is not enforced, but it might be one day. For now, this limit can be overridden
@@ -123,8 +125,8 @@ created.
 * **-a**, **--api-key**
   * Set the Eyes API key. This is required.
 * **-i**, **--index**, **--array-base**
-  * Start uploading images from the given index. The default is `0`. If it is
-    not set to a nonnegative integer, indexing is disabled.
+  * Start uploading images from the given index. By default, indexing is
+    disabled.
 * **--log**=_level_
   * Log progress. Legal values are `CRITICAL`, `ERROR`, `WARNING`, `INFO`, and
    `DEBUG`. The default is `WARNING`.
