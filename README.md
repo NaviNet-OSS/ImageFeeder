@@ -1,4 +1,4 @@
-# Utilities for use with Applitools Eyes
+# Directory watcher and image uploader for use with Applitools Eyes
 
 
 ## Introduction
@@ -12,25 +12,19 @@ These tools are written in Python, so they use Applitools's Python SDK,
 implies, `eyes-selenium` uses Selenium to take screenshots, but we take our
 screenshots in another way, so we don't use that part of the SDK.
 
-There is only one utility in this repository. It watches a directory and sends
-images to an Eyes server.
-
-
-# The Eyes-watcher
-
-This utility consists of three Python files: `eyes_watcher.py`,
+This utility consists of three Python files: `imagefeeder.py`,
 `eyeswrapper.py`, and `watchdir.py`.
 
-Usually, you will want to run `eyes_watcher.py`. For example, from the Windows
+Usually, you will want to run `imagefeeder.py`. For example, from the Windows
 command line:
 
 ```
-python eyes_watcher.py -a d8VXjWZAEaAmqxh5wo3cNdaPsGJrgkn --log debug --test
+python imagefeeder.py -a d8VXjWZAEaAmqxh5wo3cNdaPsGJrgkn --log debug --test
 test5 'Logs\ABC\*\*\\assets\screenshots' 'Logs\DEF\*\*\\assets\screenshots'
 ```
 
 
-## `eyes_watcher.py`
+## `imagefeeder.py`
 
 
 ### Synopsis
@@ -71,12 +65,12 @@ glob characters, it will be watched.
 You may need to escape glob characters to prevent your shell from expanding
 them. Putting the entire directory glob in single quotes will generally work.
 
-`eyes_watcher.py` creates holding directories for incoming files at the parent
+`imagefeeder.py` creates holding directories for incoming files at the parent
 of the lowest level that currently exists, called `IN-PROGRESS`, `DONE`, and
 `FAILED`. These names can be customized with command line options. For example,
 if the user runs:
 
-    python eyes_watcher.py 'Logs\ABC\*\*\\assets\screenshots'
+    python imagefeeder.py 'Logs\ABC\*\*\\assets\screenshots'
 
 the lowest level that exists is `Logs\ABC`, so this will be the directory
 structure:
@@ -89,7 +83,7 @@ structure:
 
 
 When a new file appears in any directory matching
-`Logs\ABC\\*\\*\\assets\screenshots`, `eyes_watcher.py` will move it to
+`Logs\ABC\\*\\*\\assets\screenshots`, `imagefeeder.py` will move it to
 `IN-PROGRESS` and upload it to Applitools Eyes (though see below). As a special
 case, a file named `done` (configurable with `--done`) is taken as a signal to
 stop watching the directory. When it stops watching, it moves all files from

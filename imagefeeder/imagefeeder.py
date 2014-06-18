@@ -463,7 +463,7 @@ def main():
     _SUCCESS_DIR_NAME = args.passed
     eyes.Eyes.api_key = args.api_key
     _INDEX = args.index
-    if _INDEX < 0:
+    if _INDEX and _INDEX < 0:
         _LOGGER.warn(
             'Invalid index {}; indexing will be disabled'.format(_INDEX))
         _INDEX = None
