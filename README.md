@@ -23,6 +23,8 @@ python imagefeeder.py -a d8VXjWZAEaAmqxh5wo3cNdaPsGJrgkn --log debug --test
 test5 'Logs\ABC\*\*\\assets\screenshots' 'Logs\DEF\*\*\\assets\screenshots'
 ```
 
+This has utility has only been tested with Python 2.7.6 on Windows 7.
+
 
 ## `imagefeeder.py`
 
@@ -38,7 +40,6 @@ _directory_] [**--passed** _directory_] [_glob_ ...]</code>
 
 ### Requirements
 
-* Python 2.7.6
 * [`eyes-selenium==1.42`](https://pypi.python.org/pypi/eyes-selenium/1.42)
 * [`watchdog`](https://pypi.python.org/pypi/watchdog)
 
@@ -84,12 +85,10 @@ structure:
 
 When a new file appears in any directory matching
 `Logs\ABC\\*\\*\\assets\screenshots`, `imagefeeder.py` will move it to
-`IN-PROGRESS` and upload it to Applitools Eyes (though see below). As a special
-case, a file named `done` (configurable with `--done`) is taken as a signal to
-stop watching the directory. When it stops watching, it moves all files from
-`IN-PROGRESS` to `DONE` on success and `FAILED` on failure. Failure means the
-images did not match the baseline. Success means the images matched the
-baseline, or there was no baseline.
+`IN-PROGRESS` and upload it to Applitools Eyes. When it stops watching, it
+moves all files from `IN-PROGRESS` to `DONE` on success and `FAILED` on
+failure. Failure means the images did not match the baseline. Success means the
+images matched the baseline, or there was no baseline.
 
 By default, images are uploaded in the order they appear in the directory. To
 avoid race conditions, you can turn on indexing using, for example, `--index
@@ -108,25 +107,32 @@ Eyes test is done, the next directory will upload its backlog. So basically,
 you can watch as many directories as you want, and it will work, but they might
 not all be uploaded concurrently.
 
-Interrupting the process exits cleanly: it acts as if a `done` file had been
-created.
+
+There are three ways to stop watching a directory. After some time (5 minutes
+by default) without a new file in a directory, it stops watching that
+directory. Pressing Ctrl-C immediately uploads anything in the backlogs of all
+directory watchers, waits for a response from Eyes, and then exits. A file
+named `done` (configurable with `--done`) is taken as a signal to stop watching
+the directory in which it is created.
 
 
 ### General arguments
 
 * **-h**, **--help**
-  * Display help and exit.
+    * Display help and exit.
 * **-a**, **--api-key**
-  * Set the Eyes API key. This is required.
+    * Set the Eyes API key. This is required.
 * **-i**, **--index**, **--array-base**
-  * Start uploading images from the given index. By default, indexing is
-    disabled.
+    * Start uploading images from the given index. By default, indexing is
+      disabled.
 * **--log**=_level_
-  * Log progress. Legal values are `CRITICAL`, `ERROR`, `WARNING`, `INFO`, and
-   `DEBUG`. The default is `WARNING`.
+    * Log progress. Legal values are `CRITICAL`, `ERROR`, `WARNING`, `INFO`,
+      and `DEBUG`. The default is `WARNING`.
 * **-t**, **--tests**=_number_
-  * Set the maximum number of tests to run concurrently. The default is `6`. A
-   nonpositive number means there is no limit.
+    * Set the maximum number of tests to run concurrently. The default is `6`.
+      A nonpositive number means there is no limit.
+* **--timeout**=_number_
+    * Set the time-out interval in seconds. The default is `300`.
 
 
 ### Eyes session arguments
@@ -138,42 +144,43 @@ the full list. The app, test, OS, and browser determine which baseline Eyes
 will run against.
 
 * **--batch**=_batch_
-  * Batch all tests together as _batch_. If this is not set, the tests are not
-     batched.
+    * Batch all tests together as _batch_. If this is not set, the tests are
+      not batched.
 * **--app**=_appname_
-  * Run against the given test's baseline. The default is derived from the
-    watched directory path.
+    * Run against the given test's baseline. The default is derived from the
+      watched directory path.
 * **--test**=_testname_
-  * Run against the given test's baseline. The default is derived from the
-    watched directory path.
+    * Run against the given test's baseline. The default is derived from the
+      watched directory path.
 * **--sep**=_pattern_
-  * Find the nearest directory to the watched directory with three or more
-    instances of _pattern_, split on it, and set the host OS and browser to the
-    last two fields but one. The default is `\_`. For example, if the directory
-    is `D:\Tests\Robot\Logs\ABC\8ca2f6b5-ba87-43f7-a722-292ace426645\_Windows
-    8\_chrome\_\1504d423550b4f719142897ae60d4ba0\assets\screenshots`,
-    the nearest directory with two underscores is
-    `8ca2f6b5-ba87-43f7-a722-292ace426645\_Windows 8\_chrome\_`, so the OS will
-    be set to `windows 8` and the browser to `chrome`. This only works if the
-    directory structure cooperates, so `--os` and `--browser` provide more
-    fine-tuned customizability.
+    * Find the nearest directory to the watched directory with three or more
+      instances of _pattern_, split on it, and set the host OS and browser to
+      the last two fields but one. The default is `\_`. For example, if the
+      directory is
+      `D:\Tests\Robot\Logs\ABC\8ca2f6b5-ba87-43f7-a722-292ace426645\_Windows
+      8\_chrome\_\1504d423550b4f719142897ae60d4ba0\assets\screenshots`, the
+      nearest directory with two underscores is
+      `8ca2f6b5-ba87-43f7-a722-292ace426645\_Windows 8\_chrome\_`, so the OS
+      will be set to `windows 8` and the browser to `chrome`. This only works
+      if the directory structure cooperates, so `--os` and `--browser` provide
+      more fine-tuned customizability.
 * **--browser**=_browser_
-  * Set the host browser. It overrides the browser as determined by `--sep`.
+    * Set the host browser. It overrides the browser as determined by `--sep`.
 * **--os**=_os_
-  * Set the host OS. It overrides the OS as determined by `--sep`.
+    * Set the host OS. It overrides the OS as determined by `--sep`.
 
 
 ### File and directory name arguments
 
 * **--done**=_filename_
-  * Stop testing when a file with the given name appears. The default is
-    `done`.
+    * Stop testing when a file with the given name appears. The default is
+      `done`.
 * **--failed**=_directory_
-  * Move files here when the Eyes test fails. The default is `FAILED`.
+    * Move files here when the Eyes test fails. The default is `FAILED`.
 * **--in-progress**=_directory_
-  * Move files here during the Eyes test. The default is `IN-PROGRESS`.
+    * Move files here during the Eyes test. The default is `IN-PROGRESS`.
 * **--passed**=_directory_
-  * Move files here when the Eyes test passes. The default is `DONE`.
+    * Move files here when the Eyes test passes. The default is `DONE`.
 
 
 ## `eyeswrapper.py`
@@ -186,7 +193,6 @@ will run against.
 
 ### Requirements
 
-* Python 2.7.6
 * [`eyes-selenium==1.42`](https://pypi.python.org/pypi/eyes-selenium/1.42)
   * Run `pip install --upgrade eyes-selenium==1.42`. The version is constrained
     because `eyeswrapper.py` hacks into the internals of Eyes. Applitools is
@@ -201,10 +207,10 @@ Upload directories full of images to Eyes.
 ### Arguments
 
 * **-h**, **--help**
-  * Display help and exit.
+    * Display help and exit.
 * **-o**, **--overwrite** _directory_
-  * Overwrite the baseline in Eyes with the images in the directory. Without
-   this flag, it compares against the baseline but does not overwrite it.
+    * Overwrite the baseline in Eyes with the images in the directory. Without
+     this flag, it compares against the baseline but does not overwrite it.
 
 
 ## `watchdir.py`
@@ -212,7 +218,6 @@ Upload directories full of images to Eyes.
 
 ### Requirements
 
-* Python 2.7.6
 * [`watchdog`](https://pypi.python.org/pypi/watchdog)
 
 

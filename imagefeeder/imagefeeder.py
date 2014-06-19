@@ -25,6 +25,7 @@ import os
 import re
 import Queue
 import shutil
+import threading
 import time
 
 from applitools import errors
@@ -41,6 +42,7 @@ _SUCCESS_DIR_NAME = 'DONE'
 _INDEX = None  # A nonnegative integer, or None to disable indexing
 _DEFAULT_SEP = '_'
 _LOGGER = logging.getLogger(__name__)
+_TIMEOUT = 300  # In seconds
 
 # The Applitools Eyes Team License limits the number of concurrent
 # tests to n + 1, where n is the number of team members. (We have five
@@ -178,6 +180,7 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
         self._next_index = _INDEX or 0
         self._path_cache = _GrowingList()
         self._stop_event = stop_event
+        self._timer = None
         for base in self.__class__.__bases__:
             base.__init__(self, **kwargs)
 
@@ -200,6 +203,8 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
         _CONCURRENT_TEST_QUEUE.put(None)
         while True:
             path = self._backlog.get()
+            if self._timer:
+                self._timer.cancel()
             basename = os.path.basename(path)
             if basename == _DONE_BASE_NAME:
                 self._stop()
@@ -232,6 +237,15 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
                 _LOGGER.warn('No index in file name: {}'.format(path))
             _LOGGER.debug('File cache, starting at index {}: {}'.format(
                 self._next_index + 1, self._path_cache[self._next_index + 1:]))
+            _LOGGER.debug('Setting timer for {} s'.format(_TIMEOUT))
+            self._timer = threading.Timer(_TIMEOUT, self._time_out)
+            self._timer.start()
+
+    def _time_out(self):
+        """Stop watching because of a time-out.
+        """
+        _LOGGER.debug('Timing out')
+        self._stop()
 
     def _stop(self):
         """Stops watching.
@@ -375,6 +389,9 @@ def _parse_args():
                         type=int, help='run N tests concurrently (N <= 0 '
                         'means unlimited; default: %(default)d)',
                         metavar='N')
+    parser.add_argument('--timeout', default=_TIMEOUT, type=int, help='stop '
+                        'watching after N seconds without a new file (by '
+                        'default, timing out is disabled)', metavar='N')
 
     return parser.parse_args()
 
@@ -458,6 +475,7 @@ def main():
     global _INDEX
     global _MAX_CONCURRENT_TESTS
     global _SUCCESS_DIR_NAME
+    global _TIMEOUT
     args = _parse_args()
 
     # Logging
@@ -483,6 +501,7 @@ def main():
         _INDEX = None
     _MAX_CONCURRENT_TESTS = args.tests
     _CONCURRENT_TEST_QUEUE = Queue.Queue(_MAX_CONCURRENT_TESTS)
+    _TIMEOUT = args.timeout
 
     # Watching
     watched_paths = []
