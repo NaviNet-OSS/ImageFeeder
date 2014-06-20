@@ -1,4 +1,6 @@
-# Directory watcher and image uploader for use with Applitools Eyes
+# ImageFeeder
+
+Directory watcher and image uploader for use with Applitools Eyes
 
 
 ## Introduction

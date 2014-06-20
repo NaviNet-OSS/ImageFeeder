@@ -250,15 +250,7 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
     def _stop(self):
         """Stops watching.
         """
-        # Upload whatever files are left.
-        for path in self._path_cache[self._next_index:]:
-            if path:
-                eyeswrapper.match(self.eyes, path)
-        # Stop watching the path.
         self._stop_event.set()
-        # Allow another path to be watched.
-        _CONCURRENT_TEST_QUEUE.get()
-        _CONCURRENT_TEST_QUEUE.task_done()
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Ends the Eyes test and moves files.
@@ -272,6 +264,14 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
             traceback: The traceback.
         """
         try:
+            # Upload whatever files are left.
+            for path in self._path_cache[self._next_index:]:
+                if path:
+                    eyeswrapper.match(self.eyes, path)
+            # Allow another path to be watched.
+            _CONCURRENT_TEST_QUEUE.get()
+            _CONCURRENT_TEST_QUEUE.task_done()
+            # Close Eyes.
             super(self.__class__, self).__exit__(exc_type, exc_value,
                                                  traceback)
         except errors.NewTestError as error:

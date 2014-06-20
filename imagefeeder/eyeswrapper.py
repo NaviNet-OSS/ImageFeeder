@@ -266,6 +266,7 @@ def _parse_args():
             _usage_and_exit(1)
     return paths
 
+
 def main():
     """Tests each directory given on the command line.
     """
