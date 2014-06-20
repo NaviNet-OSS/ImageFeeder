@@ -20,9 +20,9 @@ This utility consists of three Python files: `imagefeeder.py`,
 Usually, you will want to run `imagefeeder.py`. For example, from the Windows
 command line:
 
-```
-python imagefeeder.py -a d8VXjWZAEaAmqxh5wo3cNdaPsGJrgkn --log debug --test
-test5 'Logs\ABC\*\*\\assets\screenshots' 'Logs\DEF\*\*\\assets\screenshots'
+```batchfile
+python imagefeeder.py -a d8VXjWZAEaAmqxh5wo3cNdaPsGJrgkn --log debug --test ^
+test5 'Logs\ABC\*\*\assets\screenshots' 'Logs\DEF\*\*\assets\screenshots'
 ```
 
 This has utility has only been tested with Python 2.7.6 on Windows 7.
@@ -34,15 +34,16 @@ This has utility has only been tested with Python 2.7.6 on Windows 7.
 ### Synopsis
 
 <code>**eyes\_watcher.py** [**-h**] **-a** _API-key_ [**-i** _number_]
-[**--log** _level_] [**-t** _number_] [**--batch** _batch_] [**--app** _app_]
-[**--test** _test_] [**--sep** _pattern_] [**--browser** _browser_] [**--os**
-_OS_] [**--done** _filename_] [**--failed** _directory_] [**--in-progress**
-_directory_] [**--passed** _directory_] [_glob_ ...]</code>
+[**--log** _level_] [**-t** _number_] [**--timeout** _number_] [**--batch**
+_batch_] [**--app** _app_] [**--test** _test_] [**--sep** _pattern_]
+[**--browser** _browser_] [**--os** _OS_] [**--done** _filename_] [**--failed**
+_directory_] [**--in-progress** _directory_] [**--passed** _directory_] [_glob_
+...]</code>
 
 
 ### Requirements
 
-* [`eyes-selenium==1.42`](https://pypi.python.org/pypi/eyes-selenium/1.42)
+* [`eyes-selenium==1.45`](https://pypi.python.org/pypi/eyes-selenium/1.45)
 * [`watchdog`](https://pypi.python.org/pypi/watchdog)
 
 
@@ -73,7 +74,9 @@ of the lowest level that currently exists, called `IN-PROGRESS`, `DONE`, and
 `FAILED`. These names can be customized with command line options. For example,
 if the user runs:
 
-    python imagefeeder.py 'Logs\ABC\*\*\\assets\screenshots'
+```batchfile
+python imagefeeder.py 'Logs\ABC\*\*\assets\screenshots'
+```
 
 the lowest level that exists is `Logs\ABC`, so this will be the directory
 structure:
@@ -86,7 +89,7 @@ structure:
 
 
 When a new file appears in any directory matching
-`Logs\ABC\\*\\*\\assets\screenshots`, `imagefeeder.py` will move it to
+`Logs\ABC\*\*\assets\screenshots`, `imagefeeder.py` will move it to
 `IN-PROGRESS` and upload it to Applitools Eyes. When it stops watching, it
 moves all files from `IN-PROGRESS` to `DONE` on success and `FAILED` on
 failure. Failure means the images did not match the baseline. Success means the
@@ -157,15 +160,15 @@ will run against.
 * **--sep**=_pattern_
     * Find the nearest directory to the watched directory with three or more
       instances of _pattern_, split on it, and set the host OS and browser to
-      the last two fields but one. The default is `\_`. For example, if the
+      the last two fields but one. The default is `_`. For example, if the
       directory is
-      `D:\Tests\Robot\Logs\ABC\8ca2f6b5-ba87-43f7-a722-292ace426645\_Windows
-      8\_chrome\_\1504d423550b4f719142897ae60d4ba0\assets\screenshots`, the
+      `D:\Tests\Robot\Logs\ABC\8ca2f6b5-ba87-43f7-a722-292ace426645_Windows
+      8_chrome_\1504d423550b4f719142897ae60d4ba0\assets\screenshots`, the
       nearest directory with two underscores is
-      `8ca2f6b5-ba87-43f7-a722-292ace426645\_Windows 8\_chrome\_`, so the OS
-      will be set to `windows 8` and the browser to `chrome`. This only works
-      if the directory structure cooperates, so `--os` and `--browser` provide
-      more fine-tuned customizability.
+      `8ca2f6b5-ba87-43f7-a722-292ace426645_Windows 8_chrome_`, so the OS will
+      be set to `windows 8` and the browser to `chrome`. This only works if the
+      directory structure cooperates, so `--os` and `--browser` provide more
+      fine-tuned customizability.
 * **--browser**=_browser_
     * Set the host browser. It overrides the browser as determined by `--sep`.
 * **--os**=_os_
@@ -195,8 +198,8 @@ will run against.
 
 ### Requirements
 
-* [`eyes-selenium==1.42`](https://pypi.python.org/pypi/eyes-selenium/1.42)
-  * Run `pip install --upgrade eyes-selenium==1.42`. The version is constrained
+* [`eyes-selenium==1.45`](https://pypi.python.org/pypi/eyes-selenium/1.45)
+  * Run `pip install --upgrade eyes-selenium==1.45`. The version is constrained
     because `eyeswrapper.py` hacks into the internals of Eyes. Applitools is
     working on a new Python SDK that will obviate such measures.
 
