@@ -153,7 +153,7 @@ class EyesWrapper(object):
                 Returns:
                     A dictionary with a 'value' key whose value is a
                     dictionary with two keys, 'height' and 'width',
-                    both of which are valid window dimensions.
+                    both of whose values are valid window dimensions.
                 """
                 # pylint: disable=unused-argument
                 return {'value': {'height': 0, 'width': 0}}
@@ -161,7 +161,7 @@ class EyesWrapper(object):
             def execute_script(self, script, *args):
                 """Returns a fake viewport dimension.
 
-                The only scripts that must be mocked are those that get
+                The only scripts that must be faked are those that get
                 the width and height of the viewport.
 
                 Args:
@@ -226,7 +226,7 @@ def test(path, overwrite_baseline=False):
 def _usage_and_exit(status=None):
     """Prints a usage statement and exits.
 
-    If status is omitted, None, or 0, the usage statement is printed to
+    If status is omitted or false, the usage statement is printed to
     standard output. Otherwise, it is printed to standard error.
 
     Args:

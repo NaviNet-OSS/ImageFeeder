@@ -70,7 +70,8 @@ def _make_empty_directory(path):
 
 
 class DirectoryGlobEventHandler(events.FileSystemEventHandler):
-    """Event handler for new directories matching a glob."""
+    """Event handler for new directories matching a glob.
+    """
 
     def __init__(self, stop_event, **kwargs):
         """Initializes the event handler.
@@ -187,15 +188,14 @@ class WindowMatchingEventHandler(eyeswrapper.EyesWrapper,
     def _process(self):
         """Sends new files to Applitools.
 
-        Each image file must include an integer index somewhere in its
-        name. This method uploads them in order of their indexes,
-        starting at 0. If two files include the same integer, only the
-        first is used.
+        Each image file may include an integer index somewhere in its
+        name. If enabled by --index, this method uploads them in order
+        of their indexes. If two files include the same integer, only
+        the first is used.
 
         Stops watching when the "done" file (set by --done) appears in
-        the queue.
-
-        Ignores files without indexes.
+        the queue or when the time-out interval passes without a new
+        file appearing.
         """
         while not self.driver:
             # Wait for Eyes to have opened.

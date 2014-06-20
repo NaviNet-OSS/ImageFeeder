@@ -121,7 +121,7 @@ class CreationEventHandler(events.FileSystemEventHandler):
             self._backlog.put(new_path)
 
     def _process(self):
-        """Process the backlog.
+        """Processes the backlog.
         """
         raise NotImplementedError
 
@@ -144,7 +144,7 @@ def watch(path, context_manager, **kwargs):
             some keyword arguments and produces an event handler.
         kwargs: Keyword arguments for context_manager.
     """
-    # If path has a trailing directory separator, dirname won't work
+    # If path has a trailing directory separator, dirname won't work.
     stop_event = threading.Event()
     _STOP_EVENTS.append(stop_event)
     thread = threading.Thread(target=_watch,
