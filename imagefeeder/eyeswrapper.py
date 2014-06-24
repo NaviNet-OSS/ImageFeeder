@@ -218,7 +218,7 @@ def test(path, overwrite_baseline=False):
         paths = [os.path.join(path, f) for f in os.listdir(path)]
     except OSError:
         paths = [path]
-    with EyesWrapper(overwrite_baseline) as eyes_wrapper:
+    with EyesWrapper(overwrite_baseline=overwrite_baseline) as eyes_wrapper:
         for path in paths:
             match_window(eyes_wrapper.eyes, path)
 
@@ -237,7 +237,8 @@ def _usage_and_exit(status=None):
     else:
         stream = sys.stdout
     print('Usage:\n'
-          '    {} [[-o | --overwrite] directory ...]'.format(sys.argv[0]),
+          '    {} api-key [[-o | --overwrite] directory ...]'.format(
+              sys.argv[0]),
           file=stream)
     sys.exit(status)
 
@@ -245,13 +246,19 @@ def _usage_and_exit(status=None):
 def _parse_args():
     """Parses the command-line arguments.
 
+    Also sets the Eyes API key.
+
     Returns:
         A list of 2-tuples, each of a path and a boolean, where the
         boolean indicates whether the file at the associated path
         should overwrite the baseline.
     """
     paths = []
-    i = 1
+    try:
+        applitools.eyes.Eyes.api_key = sys.argv[1]
+    except IndexError:
+        _usage_and_exit(1)
+    i = 2
     while i < len(sys.argv):
         overwrite = False
         if sys.argv[i] in ['-o', '--overwrite']:

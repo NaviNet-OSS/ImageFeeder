@@ -193,7 +193,7 @@ will run against.
 
 ### Synopsis
 
-<code>**eyeswrapper.py** [**-h**] [[**-o**] _directory_ ...]</code>
+<code>**eyeswrapper.py** [**-h**] [_API-key_] [[**-o**] _directory_ ...]</code>
 
 
 ### Requirements
@@ -213,6 +213,8 @@ Upload directories full of images to Eyes.
 
 * **-h**, **--help**
     * Display help and exit.
+* _API-key_
+    * Set the Eyes API key. This is required.
 * **-o**, **--overwrite** _directory_
     * Overwrite the baseline in Eyes with the images in the directory. Without
      this flag, it compares against the baseline but does not overwrite it.
