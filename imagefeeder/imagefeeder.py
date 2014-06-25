@@ -45,10 +45,10 @@ _LOGGER = logging.getLogger(__name__)
 _TIMEOUT = 300  # In seconds
 
 # The Applitools Eyes Team License limits the number of concurrent
-# tests to n + 1, where n is the number of team members. (We have five
-# members.) However, Applitools does not enforce this limit; until they
-# do, we are free to test as much as we want.
-_MAX_CONCURRENT_TESTS = 6
+# tests to n + 1, where n is the number of team members. However,
+# Applitools does not enforce this limit; until they do, we are free to
+# test as much as we want.
+_MAX_CONCURRENT_TESTS = 0
 _CONCURRENT_TEST_QUEUE = None
 
 

@@ -103,14 +103,13 @@ decimal integer appearing in its name; for example, the index of
 uploaded _after_ images 0 through 4. If another image 5 appears later, it is
 ignored.
 
-Our Applitools Eyes license only allows us to run 6 tests concurrently. (This
-is not enforced, but it might be one day. For now, this limit can be overridden
-with the `--tests` option.) If you try to watch too many directories, the extra
+Your Applitools Eyes license limits the number of tests you can run
+concurrently. (This is not enforced, but it might be one day. Until then, you
+can ignore this.) If you try to watch too many directories, the extra
 directories' incoming files will be placed in a backlog. As soon as the first
 Eyes test is done, the next directory will upload its backlog. So basically,
 you can watch as many directories as you want, and it will work, but they might
 not all be uploaded concurrently.
-
 
 There are three ways to stop watching a directory. After some time (5 minutes
 by default) without a new file in a directory, it stops watching that
@@ -124,17 +123,17 @@ the directory in which it is created.
 
 * **-h**, **--help**
     * Display help and exit.
-* **-a**, **--api-key**
+* **-a**, **--api-key**=_API-key_
     * Set the Eyes API key. This is required.
-* **-i**, **--index**, **--array-base**
+* **-i**, **--index**, **--array-base**=_number_
     * Start uploading images from the given index. By default, indexing is
       disabled.
 * **--log**=_level_
     * Log progress. Legal values are `CRITICAL`, `ERROR`, `WARNING`, `INFO`,
       and `DEBUG`. The default is `WARNING`.
 * **-t**, **--tests**=_number_
-    * Set the maximum number of tests to run concurrently. The default is `6`.
-      A nonpositive number means there is no limit.
+    * Set the maximum number of tests to run concurrently. A nonpositive number
+      means there is no limit. The default is `0`.
 * **--timeout**=_number_
     * Set the time-out interval in seconds. The default is `300`.
 
