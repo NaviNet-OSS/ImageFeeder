@@ -25,7 +25,7 @@ python imagefeeder.py -a d8VXjWZAEaAmqxh5wo3cNdaPsGJrgkn --log debug --test ^
 test5 'Logs\ABC\*\*\assets\screenshots' 'Logs\DEF\*\*\assets\screenshots'
 ```
 
-This has utility has only been tested with Python 2.7.6 on Windows 7.
+This utility has only been tested with Python 2.7.6 on Windows 7.
 
 
 ## `imagefeeder.py`
@@ -33,12 +33,11 @@ This has utility has only been tested with Python 2.7.6 on Windows 7.
 
 ### Synopsis
 
-<code>**eyes\_watcher.py** [**-h**] **-a** _API-key_ [**-i** _number_]
-[**--log** _level_] [**-t** _number_] [**--timeout** _number_] [**--batch**
-_batch_] [**--app** _app_] [**--test** _test_] [**--sep** _pattern_]
-[**--browser** _browser_] [**--os** _OS_] [**--done** _filename_] [**--failed**
-_directory_] [**--in-progress** _directory_] [**--passed** _directory_] [_glob_
-...]</code>
+<code>**imagefeeder.py** [**-h**] **-a** _API-key_ [**-i** _number_] [**--log**
+_level_] [**-t** _number_] [**--timeout** _number_] [**--batch** _batch_]
+[**--app** _app_] [**--test** _test_] [**--sep** _pattern_] [**--browser**
+_browser_] [**--os** _OS_] [**--done** _filename_] [**--failed** _directory_]
+[**--in-progress** _directory_] [**--passed** _directory_] [_glob_ ...]</code>
 
 
 ### Requirements
